@@ -2,8 +2,10 @@
 
 import json
 
+import nibabel as nib
 import numpy as np
 import pytest
+from conftest import make_phantom
 
 from mri_jepa.data import preprocess as pp
 
@@ -146,3 +148,132 @@ def test_parallel_matches_sequential(raw_manifest, tmp_path):
         a = pp.output_paths(tmp_path / "seq", row["dataset_id"], row["id"])["image"]
         b = pp.output_paths(tmp_path / "par", row["dataset_id"], row["id"])["image"]
         assert np.array_equal(np.load(a), np.load(b))
+
+
+# ---------------------------------------------------------------------------
+# Shapes across spacings, and edge cases seen in real data
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "spacing, lps",
+    [
+        ((1.0, 1.0, 1.0), False),
+        ((0.5, 0.5, 0.8), True),  # high-res
+        ((0.9, 0.9, 5.0), True),  # thick-slice clinical FLAIR
+        ((2.0, 1.0, 1.0), False),
+    ],
+)
+def test_output_shape_follows_physical_size(tmp_path, spacing, lps):
+    """Same 44 x 52 x 48 mm ellipsoid, stored at different resolutions -> same 1 mm crop."""
+    fov_mm = 64.0
+    shape = tuple(int(round(fov_mm / s)) for s in spacing)
+    f = make_phantom(tmp_path, "v", shape=shape, spacing=spacing, lps=lps)
+    arrays, info = pp.preprocess_volume(f["image"], f["anat"])
+    z, y, x = arrays["image"].shape
+    # Ellipsoid diameters are 44 (x), 52 (y), 48 (z) mm; allow for voxelisation.
+    assert abs(x - 44) <= 3 and abs(y - 52) <= 3 and abs(z - 48) <= 4
+    assert info["original_spacing_mm"] == [round(float(s), 4) for s in spacing]
+
+
+def test_target_spacing_2mm_halves_the_shape(phantom):
+    one, _ = pp.preprocess_volume(phantom["image"], phantom["anat"])
+    two, info = pp.preprocess_volume(
+        phantom["image"], phantom["anat"], cfg=pp.PreprocessConfig(spacing_mm=2.0)
+    )
+    assert info["spacing_mm"] == [2.0, 2.0, 2.0]
+    for a, b in zip(one["image"].shape, two["image"].shape, strict=True):
+        assert abs(a / 2 - b) <= 1.5
+
+
+def test_margin_grows_the_crop_and_keeps_background(phantom):
+    tight, _ = pp.preprocess_volume(phantom["image"], phantom["anat"])
+    loose, info = pp.preprocess_volume(
+        phantom["image"], phantom["anat"], cfg=pp.PreprocessConfig(margin=3)
+    )
+    assert all(b == a + 6 for a, b in zip(tight["image"].shape, loose["image"].shape, strict=True))
+    assert (loose["image"][loose["anat"] == 0] == -1).all()
+    assert not loose["anat"][0].any()  # the margin slices hold no anatomy
+
+
+def test_mask_on_a_different_grid_is_aligned(tmp_path):
+    """Masks saved at another resolution/orientation must still land on the image.
+
+    f: image and masks on an anisotropic, LPS-stored grid.
+    g: the same physical head, masks stored at 1 mm in RAS.
+    Uses the asymmetric "face" (deface) mask too: a symmetric ellipsoid would
+    hide a left/right or front/back flip.
+    """
+    f = make_phantom(tmp_path / "a", "v", lps=True)
+    g = make_phantom(tmp_path / "b", "v", shape=(60, 60, 60), spacing=(1, 1, 1), lps=False)
+    image = pp.to_ras_isotropic(pp.load_volume(f["image"]))
+
+    def iou(a, b):
+        return (a & b).sum() / (a | b).sum()
+
+    for key, min_iou in (("anat", 0.9), ("anon", 0.8)):
+        a = pp.mask_on_grid(pp.load_volume(f[key]), image)
+        b = pp.mask_on_grid(pp.load_volume(g[key]), image)
+        assert a.any() and b.any()
+        assert iou(a, b) > min_iou, key  # only boundary voxels may differ
+
+
+def test_trailing_singleton_dimension_is_accepted(tmp_path, phantom):
+    nii = nib.load(phantom["image"])
+    path = tmp_path / "4d.nii.gz"
+    nib.save(nib.Nifti1Image(np.asanyarray(nii.dataobj)[..., None], nii.affine), path)
+    assert tuple(pp.load_volume(path).shape) == (1, 40, 48, 20)
+
+
+def test_true_4d_volume_is_rejected(tmp_path):
+    path = tmp_path / "4d.nii.gz"
+    nib.save(nib.Nifti1Image(np.zeros((8, 8, 8, 3), np.float32), np.eye(4)), path)
+    with pytest.raises(ValueError, match="3D"):
+        pp.load_volume(path)
+
+
+def test_nan_in_image_is_rejected(tmp_path):
+    data = np.ones((8, 8, 8), np.float32)
+    data[2, 2, 2] = np.nan
+    path = tmp_path / "nan.nii.gz"
+    nib.save(nib.Nifti1Image(data, np.eye(4)), path)
+    with pytest.raises(ValueError, match="NaN"):
+        pp.load_volume(path)
+
+
+@pytest.mark.parametrize("scale, offset", [(1.0, 0.0), (1000.0, 0.0), (0.01, -5.0), (3.0, 250.0)])
+def test_normalization_ignores_scanner_units(scale, offset):
+    """Scanners use arbitrary intensity units; the result must not depend on them."""
+    rng = np.random.default_rng(1)
+    image = rng.gamma(2.0, 50.0, (24, 24, 24)).astype(np.float64)
+    mask = np.zeros(image.shape, bool)
+    mask[4:20, 4:20, 4:20] = True
+    ref, _, _ = pp.normalize_intensity(image, mask)
+    out, _, _ = pp.normalize_intensity(image * scale + offset, mask)
+    assert np.allclose(out, ref, atol=1e-5)
+    assert out.min() == -1.0 and out.max() == 1.0
+
+
+@pytest.mark.parametrize("lower, upper", [(0.0, 100.0), (0.5, 99.5), (5.0, 95.0)])
+def test_normalization_range_for_other_percentiles(lower, upper):
+    rng = np.random.default_rng(2)
+    image = rng.normal(0, 1, (20, 20, 20))
+    mask = np.ones(image.shape, bool)
+    out, _, _ = pp.normalize_intensity(image, mask, lower, upper)
+    assert out.min() == -1.0 and out.max() == 1.0
+    clipped_top = (out == 1.0).mean()
+    assert clipped_top == pytest.approx((100 - upper) / 100, abs=0.01)
+
+
+def test_float16_storage_stays_within_range(phantom):
+    arrays, _ = pp.preprocess_volume(phantom["image"], phantom["anat"])
+    img = arrays["image"]
+    assert img.dtype == np.float16
+    assert float(img.min()) == -1.0 and float(img.max()) == 1.0
+    assert np.isfinite(img.astype(np.float32)).all()
+
+
+def test_preprocessing_is_deterministic(phantom):
+    a, _ = pp.preprocess_volume(phantom["image"], phantom["anat"], phantom["anon"])
+    b, _ = pp.preprocess_volume(phantom["image"], phantom["anat"], phantom["anon"])
+    assert all(np.array_equal(a[k], b[k]) for k in a)
