@@ -5,7 +5,10 @@ description = "Self-supervised 3D brain-MRI encoder: continued V-JEPA 2.1 pretra
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "huggingface-hub>=0.34",
     "numpy>=1.26",
+    "pandas>=3.0.6",
+    "tqdm>=4.70.1",
 ]
 
 [dependency-groups]

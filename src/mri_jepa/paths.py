@@ -47,9 +47,13 @@ def processed_dir(root: Path | None = None) -> Path:
     return (Path(root) if root is not None else data_root()) / "processed"
 
 
-def hf_home(root: Path | None = None) -> Path:
-    """Hugging Face cache (redirected here so it does not fill the internal disk)."""
-    return (Path(root) if root is not None else data_root()) / "hf_home"
+def hf_cache(root: Path | None = None) -> Path:
+    """Hugging Face download caches (redirected here so they do not fill the internal disk).
+
+    Only the caches move. The login token stays in ~/.cache/huggingface, where
+    `hf auth login` puts it.
+    """
+    return (Path(root) if root is not None else data_root()) / "hf_cache"
 
 
 def torch_home(root: Path | None = None) -> Path:
