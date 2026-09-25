@@ -36,3 +36,11 @@ folder, ideally on an external drive. Point the code at it with
 terminal has it).
 
 See `CLAUDE.md` for conventions and the full command list.
+
+## License
+
+Code in this repo: [Apache 2.0](LICENSE). Not included, and not covered by it:
+
+- [OpenMind dataset](https://huggingface.co/datasets/MIC-DKFZ/OpenMind): CC BY 4.0.
+- [V-JEPA 2.1](https://github.com/facebookresearch/vjepa2) code and weights: Meta's
+  license (MIT). Downloaded at run time.

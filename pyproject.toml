@@ -3,6 +3,7 @@ name = "mri-jepa"
 version = "0.1.0"
 description = "Self-supervised 3D brain-MRI encoder: continued V-JEPA 2.1 pretraining on OpenMind"
 readme = "README.md"
+license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = [
     "einops>=0.8.2",
