@@ -19,6 +19,7 @@ src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
   models/vjepa.py   load_vjepa2_1_encoder(): V-JEPA 2.1 via torch.hub + manual checkpoint
   viz.py            plot_clip_grid(): 4x4 slice grid with mask overlay -> PNG
   notify.py         macOS notification + sound when long scripts finish
+  masking.py        ForegroundBlockMasker: V-JEPA 2.1 multi-block masks on anatomy only
 scripts/          command-line entry points (thin wrappers around the package)
 tests/            pytest; synthetic data only, never needs the SSD or network
 ```
@@ -127,3 +128,45 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
   files must ignore names that start with `._`.
 - Cloud Claude sessions cannot reach huggingface.co or dl.fbaipublicfiles.com
   and have no SSD. Real downloads and model runs happen on the Mac.
+
+## Status and next steps (keep this section current)
+
+Built and tested on synthetic data, not yet run on real data: download (with
+`--status` and a notification when done), preprocessing, Dataset, V-JEPA
+loader and smoke test, visualisation, foreground masking.
+
+Next, in order:
+
+1. **On the Mac, real data.** Run `download_openmind.py --inspect`, then
+   `--n 200 --dry-run`, and show the owner the size before downloading if it
+   is over 5 GB. Then download (under `caffeinate -i`), `preprocess.py --limit 5`,
+   `preprocess.py`, `visualize_clip.py --random 4` (look at the PNGs), and
+   `smoke_test_encoder.py` with pretrained weights. Fix whatever real files
+   break. The CSV column names come from nnssl's code and have not yet been
+   checked against the actual file.
+2. **Probe baseline (before any training).** Freeze the *original* ViT-B,
+   mean-pool the tokens per clip, and fit a linear probe, e.g. T1w/T2w/FLAIR
+   from `modality`. Later add age and sex from the metadata. This is the
+   "before" number that continued pretraining must beat.
+3. **One JEPA train step** (`src/mri_jepa/train_step.py`), following Meta's
+   `app/vjepa_2_1/train.py` at `VJEPA_COMMIT`:
+   - student = encoder, teacher = `copy.deepcopy(encoder)` updated by EMA
+     (momentum 0.99925), predictor from the same checkpoint.
+   - The released ViT-B is distilled from ViT-G, so its `predictor_proj` and
+     `predictor_proj_context` output 1664 dims. Replace both with new
+     `Linear(384, 4 * 768)`. The teacher target is the concatenation of layers
+     [2, 5, 8, 11] (`encoder(x, training=True)` returns it; each 768-chunk is
+     layer-normed separately, see `forward_target`).
+   - Run the encoder once per mask type: `encoder(x, masks=m, training=True)`.
+     Then `predictor(z, m_enc, m_pred)` returns (target preds, context preds).
+   - loss = L1(target preds, teacher[targets]) + 0.5 · L1(context preds,
+     teacher[context]) weighted by 1/sqrt(distance to nearest target token)
+     (`app/vjepa_2_1/models/utils/masks_dist.py`).
+   - Masks come from `ForegroundBlockMasker` applied to
+     `token_foreground(batch["mask"])`.
+4. **Train script:** AdamW, a much lower LR than from-scratch (6e-4). Start
+   around 1e-4 with warmup, then tune. Use MPS, checkpoint/resume on the SSD, and
+   first overfit ~8 clips as a sanity check before a real run.
+5. **Probes again** on the continued-pretraining encoder vs the baseline.
+6. Whole-volume representation for the LLM stage: longer clips (up to 64
+   frames), slice stride > 1, or pooling several clips. Decide after step 5.
