@@ -120,3 +120,28 @@ def test_dataloader_batches(processed):
 def test_empty_folder_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         MRISliceClipDataset(tmp_path)
+
+
+def test_split_is_stable_and_roughly_80_20():
+    from mri_jepa.data.splits import split_of
+
+    ids = [f"ds{i:06d}" for i in range(2000)]
+    sides = [split_of(i) for i in ids]
+    assert sides == [split_of(i) for i in ids]  # same answer every time
+    assert 0.17 < sides.count("test") / len(ids) < 0.23
+    assert split_of("ds000001", seed=1) in {"train", "test"}
+
+
+def test_dataset_split_filter(processed):
+    everything = find_volumes(processed)
+    train = find_volumes(processed, split="train")
+    test = find_volumes(processed, split="test")
+    assert len(train) + len(test) == len(everything)
+    assert all(v["split"] == "train" for v in train)
+    with pytest.raises(ValueError):
+        find_volumes(processed, split="validation")
+
+
+def test_item_reports_depth(processed):
+    ds = MRISliceClipDataset(processed)
+    assert ds[0]["depth"] == ds.items[0]["shape"][0]
