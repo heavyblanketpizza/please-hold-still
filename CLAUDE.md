@@ -203,7 +203,8 @@ Next, on the Mac, in order:
    expected: the saved encoder is the EMA teacher, which moves only ~11% of
    the way toward the student in 150 training steps (0.99925^150 ≈ 0.89).
    Clip features changed ~4% (cosine 0.999), so the checkpoint does load.
-   Over 1000 steps the teacher moves ~53% (0.99925^1000 ≈ 0.47).
+   In run1 (1000 steps, the first 200 predictor-only) the teacher moves ~45%
+   (0.99925^800 ≈ 0.55).
 4. **Real run:** `train_jepa.py --run-name run1 --steps 1000` (read the ETA it
    prints; Ctrl-C saves; re-running resumes). Then `evaluate_encoder.py --tag
    run1 --checkpoint .../encoder_last.pt` and `compare_models.py baseline run1`.
