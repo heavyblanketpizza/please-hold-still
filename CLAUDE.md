@@ -18,6 +18,7 @@ src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
   data/dataset.py   MRISliceClipDataset: (T,3,256,256) clips + (T,256,256) masks
   models/vjepa.py   load_vjepa2_1_encoder(): V-JEPA 2.1 via torch.hub + manual checkpoint
   viz.py            plot_clip_grid(): 4x4 slice grid with mask overlay -> PNG
+  notify.py         macOS notification + sound when long scripts finish
 scripts/          command-line entry points (thin wrappers around the package)
 tests/            pytest; synthetic data only, never needs the SSD or network
 ```
@@ -38,7 +39,8 @@ Pipeline (run on the Mac, in order):
 ```bash
 uv run python scripts/download_openmind.py --inspect      # CSV only (a few MB) + summary
 uv run python scripts/download_openmind.py --n 200 --dry-run   # show sizes, download nothing
-uv run python scripts/download_openmind.py --n 200        # ~200 T1w/T2w/FLAIR + masks
+caffeinate -i uv run python scripts/download_openmind.py --n 200   # ~200 volumes; Mac stays awake
+uv run python scripts/download_openmind.py --status       # progress, from another terminal
 uv run python scripts/preprocess.py --limit 5             # time a few volumes first
 uv run python scripts/preprocess.py --workers 8           # all volumes in the manifest
 uv run python scripts/smoke_test_encoder.py               # 1 batch through pretrained ViT-B

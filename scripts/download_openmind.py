@@ -12,6 +12,13 @@ first and stops if it is above --max-gb (default 5).
 
 Files land in <data root>/raw/, which defaults to
 "/Volumes/Just for Fun/mri-jepa-data/raw". Re-running skips finished files.
+On a Mac you get a notification (with a sound) when it finishes or fails.
+
+Check progress from another terminal at any time (no network needed):
+    uv run python scripts/download_openmind.py --status
+
+Keep the Mac awake during a long download:
+    caffeinate -i uv run python scripts/download_openmind.py --n 200
 """
 
 from __future__ import annotations
@@ -23,6 +30,7 @@ from pathlib import Path
 
 from mri_jepa import paths
 from mri_jepa.data import openmind as om
+from mri_jepa.notify import notify
 
 GB = 1024**3
 
@@ -39,6 +47,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-gb", type=float, default=5.0, help="refuse bigger downloads (GB)")
     p.add_argument("--workers", type=int, default=8, help="parallel downloads")
     p.add_argument("--dry-run", action="store_true", help="plan and print sizes, download nothing")
+    p.add_argument("--status", action="store_true", help="progress of the running/last download")
     return p.parse_args()
 
 
@@ -63,6 +72,9 @@ def main() -> int:
     om.configure_hf_cache(root)
     raw = paths.raw_dir(root)
     raw.mkdir(exist_ok=True)
+
+    if args.status:
+        return print_status(raw)
 
     csv_path = raw / om.METADATA_FILENAME
     if not csv_path.is_file():
@@ -107,6 +119,8 @@ def main() -> int:
     if args.dry_run:
         return 0
 
+    om.write_plan(sizes, raw / om.PLAN_NAME)
+    (raw / om.MANIFEST_NAME).unlink(missing_ok=True)  # rewritten below once files are in
     failed = om.download_files(todo, raw, args.repo_id, args.workers) if todo else []
 
     # Keep only volumes whose image and masks are all on disk.
@@ -121,8 +135,32 @@ def main() -> int:
     ok.to_csv(raw / om.MANIFEST_NAME, index=False)
     print(f"\nwrote {raw / om.MANIFEST_NAME} with {len(ok)} of {len(manifest)} volumes")
     if failed:
-        print(f"{len(failed)} downloads failed; re-run the same command to retry them.")
+        notify(
+            "OpenMind download stopped",
+            f"{len(failed)} files failed, {len(ok)} volumes ready. Re-run the same command.",
+            sound="Basso",
+        )
         return 1
+    notify("OpenMind download finished", f"{len(ok)} volumes ready in {raw}")
+    return 0
+
+
+def print_status(raw: Path) -> int:
+    """Progress of the current or last download, from files on disk (no network)."""
+    plan = raw / om.PLAN_NAME
+    if not plan.is_file():
+        print("No download has been started yet.")
+        return 1
+    p = om.download_progress(plan, raw)
+    pct = 100 * p["bytes_done"] / max(p["bytes_total"], 1)
+    print(
+        f"{p['files_done']}/{p['files_total']} files, "
+        f"{p['bytes_done'] / GB:.2f}/{p['bytes_total'] / GB:.2f} GB ({pct:.0f}%)"
+    )
+    if (raw / om.MANIFEST_NAME).is_file():
+        print(f"Finished: {raw / om.MANIFEST_NAME} is written. Next: scripts/preprocess.py")
+    else:
+        print("Still running (or stopped early; re-run the download command to resume).")
     return 0
 
 

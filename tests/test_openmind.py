@@ -117,3 +117,12 @@ def test_download_files_reports_failures(tmp_path):
     )
     assert failed == ["bad"]
     assert (tmp_path / "good1").is_file() and (tmp_path / "good2").is_file()
+
+
+def test_download_progress_counts_only_complete_files(tmp_path):
+    om.write_plan({"a/1.nii.gz": 10, "a/2.nii.gz": 20, "a/3.nii.gz": 30}, tmp_path / "plan.csv")
+    (tmp_path / "a").mkdir()
+    (tmp_path / "a" / "1.nii.gz").write_bytes(b"x" * 10)  # complete
+    (tmp_path / "a" / "2.nii.gz").write_bytes(b"x" * 5)  # still arriving
+    p = om.download_progress(tmp_path / "plan.csv", tmp_path)
+    assert p == {"files_total": 3, "files_done": 1, "bytes_total": 60, "bytes_done": 10}

@@ -23,6 +23,7 @@ import pandas as pd
 from mri_jepa import paths
 from mri_jepa.data.openmind import MANIFEST_NAME
 from mri_jepa.data.preprocess import PreprocessConfig, process_many
+from mri_jepa.notify import notify
 
 
 def parse_args() -> argparse.Namespace:
@@ -67,6 +68,8 @@ def main() -> int:
             print(f"  {r['id']}: {r['message']}")
     elif failures_csv.exists():
         failures_csv.unlink()  # stale list from an earlier run
+    counts = status["status"].value_counts().to_dict()
+    notify("Preprocessing finished", ", ".join(f"{v} {k}" for k, v in counts.items()))
     return 0
 
 
