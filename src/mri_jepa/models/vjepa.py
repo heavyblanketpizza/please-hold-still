@@ -115,6 +115,23 @@ def download_checkpoint(model: str = "vit_base", max_gb: float = 5.0) -> Path:
     return dst
 
 
+def set_predictor_grid(predictor, patches_per_side: int, num_frames: int, tubelet_size: int = 2):
+    """Tell the predictor the token grid of the clips it will see.
+
+    Why: the predictor turns a token's flat index into a (time, row, column)
+    position for its rotary position encoding. Unlike the encoder, it is not
+    told the real grid at run time. It uses the grid it was built for (24x24
+    for the 384-px models). At 256 px (16x16) that silently puts every token
+    in the wrong place, e.g. index 300 = (1, 2, 12) is read as (0, 12, 12).
+    Square frames only.
+    """
+    predictor.grid_height = predictor.grid_width = patches_per_side
+    predictor.grid_depth = num_frames // tubelet_size
+    predictor.num_patches = predictor.grid_depth * patches_per_side**2
+    for block in predictor.predictor_blocks:
+        block.attn.grid_size = patches_per_side
+
+
 def clean_state_dict(state: dict) -> dict:
     """Strip the "module." / "backbone." prefixes training wrappers add to weight names."""
     return {k.replace("module.", "").replace("backbone.", ""): v for k, v in state.items()}

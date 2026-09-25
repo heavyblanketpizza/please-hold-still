@@ -20,6 +20,7 @@ src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
   viz.py            plot_clip_grid(): 4x4 slice grid with mask overlay -> PNG
   notify.py         macOS notification + sound when long scripts finish
   masking.py        ForegroundBlockMasker: V-JEPA 2.1 multi-block masks on anatomy only
+  jepa.py           JEPA: student + EMA teacher + predictor; one training step's loss
 scripts/          command-line entry points (thin wrappers around the package)
 tests/            pytest; synthetic data only, never needs the SSD or network
 ```
@@ -111,6 +112,11 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
   with theirs harmlessly, because we only have `src/mri_jepa`. Never add
   `src/__init__.py` or top-level packages named `hub`, `models`, `masks`,
   `utils` or `datasets` under `src/`.
+- Predictor grid pitfall: the predictor turns flat token indices into
+  (t, row, col) using the grid it was built for (24×24 at 384 px). Unlike the
+  encoder, it is not told the real grid, so at 256 px every position is silently
+  wrong. Call `set_predictor_grid(predictor, H // 16, T)` before using it.
+  `JEPA.forward` does this for you on every call.
 
 ## Hardware and storage
 
@@ -133,7 +139,8 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
 
 Built and tested on synthetic data, not yet run on real data: download (with
 `--status` and a notification when done), preprocessing, Dataset, V-JEPA
-loader and smoke test, visualisation, foreground masking.
+loader and smoke test, visualisation, foreground masking, and the JEPA
+training step (`jepa.py`).
 
 Next, in order:
 
@@ -148,25 +155,23 @@ Next, in order:
    mean-pool the tokens per clip, and fit a linear probe, e.g. T1w/T2w/FLAIR
    from `modality`. Later add age and sex from the metadata. This is the
    "before" number that continued pretraining must beat.
-3. **One JEPA train step** (`src/mri_jepa/train_step.py`), following Meta's
-   `app/vjepa_2_1/train.py` at `VJEPA_COMMIT`:
-   - student = encoder, teacher = `copy.deepcopy(encoder)` updated by EMA
-     (momentum 0.99925), predictor from the same checkpoint.
-   - The released ViT-B is distilled from ViT-G, so its `predictor_proj` and
-     `predictor_proj_context` output 1664 dims. Replace both with new
-     `Linear(384, 4 * 768)`. The teacher target is the concatenation of layers
-     [2, 5, 8, 11] (`encoder(x, training=True)` returns it; each 768-chunk is
-     layer-normed separately, see `forward_target`).
-   - Run the encoder once per mask type: `encoder(x, masks=m, training=True)`.
-     Then `predictor(z, m_enc, m_pred)` returns (target preds, context preds).
-   - loss = L1(target preds, teacher[targets]) + 0.5 · L1(context preds,
-     teacher[context]) weighted by 1/sqrt(distance to nearest target token)
-     (`app/vjepa_2_1/models/utils/masks_dist.py`).
-   - Masks come from `ForegroundBlockMasker` applied to
-     `token_foreground(batch["mask"])`.
-4. **Train script:** AdamW, a much lower LR than from-scratch (6e-4). Start
-   around 1e-4 with warmup, then tune. Use MPS, checkpoint/resume on the SSD, and
-   first overfit ~8 clips as a sanity check before a real run.
+3. ~~One JEPA train step~~ **done** (`src/mri_jepa/jepa.py`). It follows
+   Meta's `app/vjepa_2_1/train.py` with these choices:
+   - Targets are the teacher's **last layer only** (768 dims, layer-normed),
+     like the released distilled checkpoint. The predictor keeps its
+     pretrained body; only `predictor_proj` and `predictor_proj_context`
+     (which output 1664-dim ViT-G features) are replaced with new
+     `Linear(384, 768)` layers. Meta's 4-layer "deep supervision" targets
+     are a possible later experiment.
+   - One encoder and predictor pass per mask type, `mask_index=0`. Loss =
+     L1(targets) + λ · distance-weighted L1(context), with λ = 0.5 by
+     default; the training script can ramp it. EMA momentum is 0.99925.
+4. **Train script:** AdamW over the student and predictor, with a much lower LR
+   than from-scratch (6e-4). Start around 1e-4 with warmup, then tune. The
+   predictor's output layers are new, so consider a short warm-up where only
+   the predictor trains (student frozen), so random heads do not damage the
+   pretrained encoder. Use MPS, checkpoint/resume on the SSD, and first
+   overfit ~8 clips as a sanity check before a real run.
 5. **Probes again** on the continued-pretraining encoder vs the baseline.
 6. Whole-volume representation for the LLM stage: longer clips (up to 64
    frames), slice stride > 1, or pooling several clips. Decide after step 5.
