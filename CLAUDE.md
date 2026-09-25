@@ -196,8 +196,14 @@ Next, on the Mac, in order:
    MAE 0.062 of head height (0.055–0.070, chance 0.26, R² 0.93). Age is the
    weakest and has the most room to improve. `smoke_test_encoder.py` passed
    on real data (0.74 s per 2-clip batch on mps).
-3. **Sanity run:** `train_jepa.py --run-name overfit --steps 200 --max-volumes 8
-   --predictor-only-steps 50`. The loss should fall clearly.
+3. **Sanity run:** done (2026-09-26), `<root>/runs/overfit/`. Loss fell
+   0.76 → 0.52 over 200 steps (about 2.5–2.9 s per step at batch 8, fp32).
+   Probes on its `encoder_last.pt` (`<root>/eval/overfit/`) match the
+   baseline within noise (age MAE 9.4 vs 9.8, others unchanged). That is
+   expected: the saved encoder is the EMA teacher, which moves only ~11% of
+   the way toward the student in 150 training steps (0.99925^150 ≈ 0.89).
+   Clip features changed ~4% (cosine 0.999), so the checkpoint does load.
+   Over 1000 steps the teacher moves ~53% (0.99925^1000 ≈ 0.47).
 4. **Real run:** `train_jepa.py --run-name run1 --steps 1000` (read the ETA it
    prints; Ctrl-C saves; re-running resumes). Then `evaluate_encoder.py --tag
    run1 --checkpoint .../encoder_last.pt` and `compare_models.py baseline run1`.
