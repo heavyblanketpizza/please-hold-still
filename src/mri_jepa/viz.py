@@ -80,3 +80,121 @@ def plot_clip_grid(
     fig.savefig(out_path, dpi=120, facecolor="white")
     plt.close(fig)
     return out_path
+
+
+# Categorical slots 1-4 (light surface), assigned to models in the order given.
+MODEL_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
+TEXT_MUTED = "#8a897f"
+
+TASK_TITLES = {
+    "modality": "Scan type (T1w/T2w/FLAIR)",
+    "sex": "Sex",
+    "age": "Age (years)",
+    "slice_height": "Where in the head",
+}
+METRIC_LABELS = {"balanced_accuracy": "balanced accuracy ↑", "mae": "mean abs. error ↓"}
+
+
+def plot_probe_comparison(results: dict[str, dict], out_path: str | Path) -> Path:
+    """One small panel per probe task; one bar per model, with its 95% range.
+
+    results: {model name: {task: probe result dict}} as returned by
+    `mri_jepa.probe.run_probes`. Tasks skipped for any model are left out.
+    """
+    from matplotlib.patches import Patch
+
+    models = list(results)
+    if len(models) > len(MODEL_COLORS):
+        raise ValueError(f"at most {len(MODEL_COLORS)} models per chart")
+    tasks = [t for t in TASK_TITLES if all("value" in results[m].get(t, {}) for m in models)]
+    if not tasks:
+        raise ValueError("no probe task has results for every model")
+
+    fig, axes = plt.subplots(
+        1, len(tasks), figsize=(3.1 * len(tasks), 3.6), facecolor="white", squeeze=False
+    )
+    for ax, task in zip(axes[0], tasks, strict=True):
+        entries = [results[m][task] for m in models]
+        values = np.array([e["value"] for e in entries])
+        lo = values - np.array([e["ci95"][0] for e in entries])
+        hi = np.array([e["ci95"][1] for e in entries]) - values
+        x = np.arange(len(models))
+        ax.bar(
+            x, values, width=0.62, color=MODEL_COLORS[: len(models)], edgecolor="white", linewidth=2
+        )
+        ax.errorbar(
+            x,
+            values,
+            yerr=[np.clip(lo, 0, None), np.clip(hi, 0, None)],
+            fmt="none",
+            ecolor=TEXT_SECONDARY,
+            elinewidth=1,
+            capsize=3,
+        )
+        chance = entries[0]["chance"]
+        ax.axhline(chance, color=TEXT_MUTED, linestyle="--", linewidth=1)
+        ax.text(
+            len(models) - 0.5,
+            chance,
+            " chance",
+            va="bottom",
+            ha="right",
+            fontsize=8,
+            color=TEXT_SECONDARY,
+        )
+        top = max(float(np.max(values + np.clip(hi, 0, None))), chance) * 1.18
+        for xi, v in zip(x, values, strict=True):
+            ax.text(
+                xi,
+                v / 2 if v > top * 0.12 else v,
+                f"{v:.2f}",
+                ha="center",
+                va="center" if v > top * 0.12 else "bottom",
+                fontsize=9,
+                color="white" if v > top * 0.12 else TEXT_PRIMARY,
+            )
+        ax.set_ylim(0, top)
+        ax.set_xticks([])
+        ax.set_title(TASK_TITLES[task], fontsize=10, color=TEXT_PRIMARY, pad=16)
+        ax.text(
+            0.5,
+            1.01,
+            METRIC_LABELS[entries[0]["metric"]],
+            transform=ax.transAxes,
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            color=TEXT_SECONDARY,
+        )
+        ax.tick_params(colors=TEXT_SECONDARY, labelsize=8)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        for side in ("left", "bottom"):
+            ax.spines[side].set_color("#d4d3cc")
+        ax.yaxis.grid(True, color="#eeede8", linewidth=0.8)
+        ax.set_axisbelow(True)
+
+    handles = [Patch(color=MODEL_COLORS[i], label=m) for i, m in enumerate(models)]
+    fig.legend(
+        handles=handles,
+        loc="upper center",
+        ncol=len(models),
+        frameon=False,
+        fontsize=9,
+        labelcolor=TEXT_PRIMARY,
+    )
+    fig.text(
+        0.5,
+        0.015,
+        "Bars: test-set score · whiskers: 95% range over resampled test volumes · dashed: chance",
+        ha="center",
+        fontsize=8,
+        color=TEXT_SECONDARY,
+    )
+    fig.tight_layout(rect=(0, 0.05, 1, 0.9))
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=130, facecolor="white")
+    plt.close(fig)
+    return out_path

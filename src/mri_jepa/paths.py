@@ -67,3 +67,13 @@ def hf_cache(root: Path | None = None) -> Path:
 def torch_home(root: Path | None = None) -> Path:
     """torch.hub cache: V-JEPA code and checkpoints."""
     return (Path(root) if root is not None else data_root()) / "torch_home"
+
+
+def runs_dir(root: Path | None = None) -> Path:
+    """Training runs: checkpoints and logs, one folder per run."""
+    return (Path(root) if root is not None else data_root()) / "runs"
+
+
+def eval_dir(root: Path | None = None) -> Path:
+    """Probe evaluations: features and results, one folder per evaluated model."""
+    return (Path(root) if root is not None else data_root()) / "eval"

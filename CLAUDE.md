@@ -21,6 +21,8 @@ src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
   notify.py         macOS notification + sound when long scripts finish
   masking.py        ForegroundBlockMasker: V-JEPA 2.1 multi-block masks on anatomy only
   jepa.py           JEPA: student + EMA teacher + predictor; one training step's loss
+  probe.py          frozen-encoder features + linear probes + before/after table
+  data/splits.py    split_of(): stable 80/20 train/test split by OpenNeuro study
 scripts/          command-line entry points (thin wrappers around the package)
 tests/            pytest; synthetic data only, never needs the SSD or network
 ```
@@ -47,6 +49,8 @@ uv run python scripts/preprocess.py --limit 5             # time a few volumes f
 uv run python scripts/preprocess.py --workers 8           # all volumes in the manifest
 uv run python scripts/smoke_test_encoder.py               # 1 batch through pretrained ViT-B
 uv run python scripts/visualize_clip.py --random 4        # PNG grids in outputs/ (git-ignored)
+uv run python scripts/evaluate_encoder.py --tag baseline  # probes on the original encoder
+uv run python scripts/compare_models.py baseline run1     # before/after table + chart
 ```
 
 Offline checks (no data, no weights; needs a local vjepa2 clone):
