@@ -17,6 +17,7 @@ src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
   data/preprocess.py  NIfTI -> RAS, 1 mm, cropped, normalised .npy + JSON
   data/dataset.py   MRISliceClipDataset: (T,3,256,256) clips + (T,256,256) masks
   models/vjepa.py   load_vjepa2_1_encoder(): V-JEPA 2.1 via torch.hub + manual checkpoint
+  viz.py            plot_clip_grid(): 4x4 slice grid with mask overlay -> PNG
 scripts/          command-line entry points (thin wrappers around the package)
 tests/            pytest; synthetic data only, never needs the SSD or network
 ```
@@ -41,6 +42,7 @@ uv run python scripts/download_openmind.py --n 200        # ~200 T1w/T2w/FLAIR +
 uv run python scripts/preprocess.py --limit 5             # time a few volumes first
 uv run python scripts/preprocess.py --workers 8           # all volumes in the manifest
 uv run python scripts/smoke_test_encoder.py               # 1 batch through pretrained ViT-B
+uv run python scripts/visualize_clip.py --random 4        # PNG grids in outputs/ (git-ignored)
 ```
 
 Offline checks (no data, no weights; needs a local vjepa2 clone):
