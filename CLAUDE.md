@@ -82,7 +82,9 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
 - HF dataset `AnonRes/OpenMind`. `openneuro_metadata.csv` sits at the repo root.
   Its `image_path`, `anat_mask_path` and `anon_mask_path` (the deface mask) are
   relative to the `OpenMind/` folder. Column names match the authors' loader in
-  MIC-DKFZ/nnssl (`dataset_conversion/Dataset001_OpenMind.py`).
+  MIC-DKFZ/nnssl (`dataset_conversion/Dataset001_OpenMind.py`), and the real
+  file (checked 2026-09-26). Scans from one session can share a mask file, so
+  200 volumes need fewer than 600 files (563 in our subset).
 - `image_quality_score`: lower is better. The authors filter at 1.5–3.5.
 - The download step writes `<root>/raw/subset_manifest.csv` (id, dataset_id,
   modality, image, anat_mask, anon_mask, image_quality_score). Paths in it are
@@ -162,9 +164,9 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
 
 ## Status and next steps (keep this section current)
 
-Built and tested on synthetic data, not yet run on real data: download (with
-`--status` and a notification when done), preprocessing, Dataset (with a
-stable train/test split by study), V-JEPA loader and smoke test,
+Built and tested on synthetic data: download (with `--status` and a
+notification when done), preprocessing, Dataset (with a stable train/test
+split by study), V-JEPA loader and smoke test,
 visualisation, foreground masking, the JEPA training step (`jepa.py`), the
 training script (`train_jepa.py`), and the probe evaluation + comparison
 (`evaluate_encoder.py`, `compare_models.py`). The full loop (evaluate → train →
@@ -172,11 +174,13 @@ evaluate → compare) has been run end to end on fake volumes.
 
 Next, on the Mac, in order:
 
-1. **Real data.** Run `download_openmind.py --inspect`, then `--n 200 --dry-run`
-   (show the owner the size if over 5 GB), then download, `preprocess.py --limit 5`,
+1. **Real data.** Done on the Mac (2026-09-26): `--inspect`, `--n 200
+   --dry-run` and the download itself. The real CSV has the expected columns,
+   and 200 volumes (67 T1w, 67 T2w, 66 FLAIR from 122 studies, 2.39 GB) are on
+   the data drive with a complete `subset_manifest.csv`. The Hugging Face
+   download worked without logging in. Still to do: `preprocess.py --limit 5`,
    `preprocess.py`, `visualize_clip.py --random 4` (look at the PNGs), and
-   `smoke_test_encoder.py`. Fix whatever real files break. The CSV column names
-   come from nnssl's code and have not yet been checked against the file.
+   `smoke_test_encoder.py`. Fix whatever real files break.
 2. **Baseline:** `evaluate_encoder.py --tag baseline` (original weights). Note
    the scan-type probe may already be near 100%; the position-in-head, age
    and sex probes are the informative ones.
