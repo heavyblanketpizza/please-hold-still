@@ -16,6 +16,7 @@ src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
   data/openmind.py  OpenMind CSV parsing, subset selection, HF download
   data/preprocess.py  NIfTI -> RAS, 1 mm, cropped, normalised .npy + JSON
   data/dataset.py   MRISliceClipDataset: (T,3,256,256) clips + (T,256,256) masks
+  models/vjepa.py   load_vjepa2_1_encoder(): V-JEPA 2.1 via torch.hub + manual checkpoint
 scripts/          command-line entry points (thin wrappers around the package)
 tests/            pytest; synthetic data only, never needs the SSD or network
 ```
@@ -39,6 +40,14 @@ uv run python scripts/download_openmind.py --n 200 --dry-run   # show sizes, dow
 uv run python scripts/download_openmind.py --n 200        # ~200 T1w/T2w/FLAIR + masks
 uv run python scripts/preprocess.py --limit 5             # time a few volumes first
 uv run python scripts/preprocess.py --workers 8           # all volumes in the manifest
+uv run python scripts/smoke_test_encoder.py               # 1 batch through pretrained ViT-B
+```
+
+Offline checks (no data, no weights; needs a local vjepa2 clone):
+
+```bash
+uv run python scripts/smoke_test_encoder.py --random-weights --synthetic --hub-repo /path/to/vjepa2
+VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise those tests skip
 ```
 
 ## Conventions
@@ -81,6 +90,22 @@ uv run python scripts/preprocess.py --workers 8           # all volumes in the m
   Frame row = posterior→anterior and column = left→right (no flips), so plot
   with `origin="lower"`. The V-JEPA encoder wants (B, 3, T, H, W): use
   `video.permute(0, 2, 1, 3, 4)` on a batch.
+
+## V-JEPA 2.1
+
+- Always load through `mri_jepa.models.vjepa`. Never call `torch.hub.load(...,
+  pretrained=True)` directly: upstream's `VJEPA_BASE_URL` points at
+  `http://localhost:8300`, so it fails. The helper builds the architecture with
+  `pretrained=False` from pinned commit `VJEPA_COMMIT`, downloads
+  `https://dl.fbaipublicfiles.com/vjepa2/<name>.pt` itself, and loads the
+  `ema_encoder` weights (plus `predictor` if asked).
+- ViT-B = `vjepa2_1_vit_base_384`, 87M params, patch 16, tubelet 2, dim 768.
+  Trained at 384 px, but RoPE lets it run at 256. Input is (B, 3, T, H, W),
+  output is (B, T/2 · H/16 · W/16, 768). For 16×256×256 that is 2048 tokens.
+- vjepa2's `src/` and `app/` are namespace packages. Our repo's `src/` merges
+  with theirs harmlessly, because we only have `src/mri_jepa`. Never add
+  `src/__init__.py` or top-level packages named `hub`, `models`, `masks`,
+  `utils` or `datasets` under `src/`.
 
 ## Hardware and storage
 
