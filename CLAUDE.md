@@ -49,6 +49,7 @@ uv run python scripts/download_openmind.py --status       # progress, from anoth
 uv run python scripts/preprocess.py --limit 5             # time a few volumes first
 uv run python scripts/preprocess.py --workers 8           # all volumes in the manifest
 uv run python scripts/smoke_test_encoder.py               # 1 batch through pretrained ViT-B
+uv run python scripts/benchmark_train_step.py --bf16     # s/step + batch size, no data needed
 uv run python scripts/visualize_clip.py --random 4        # PNG grids in outputs/ (git-ignored)
 uv run python scripts/evaluate_encoder.py --tag baseline  # probes on the original encoder
 uv run python scripts/train_jepa.py --run-name overfit --steps 200 --max-volumes 8 --predictor-only-steps 50
