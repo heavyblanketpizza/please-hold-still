@@ -62,3 +62,16 @@ def test_checkpoint_loading_round_trip(tmp_path):
     for a, b in zip(src_pred.state_dict().values(), pred.state_dict().values(), strict=True):
         assert torch.equal(a, b)
     assert not enc.training  # returned in eval mode
+
+
+@needs_repo
+def test_explicit_checkpoint_is_loaded_even_without_pretrained(tmp_path):
+    enc, _ = vjepa.build_architecture("vit_base", VJEPA2_REPO)
+    with torch.no_grad():
+        for p in enc.parameters():
+            p.fill_(0.5)
+    torch.save({"ema_encoder": enc.state_dict()}, tmp_path / "e.pt")
+    loaded = vjepa.load_vjepa2_1_encoder(
+        pretrained=False, checkpoint=tmp_path / "e.pt", device="cpu", hub_repo=VJEPA2_REPO
+    )
+    assert all(torch.all(p == 0.5) for p in loaded.parameters())

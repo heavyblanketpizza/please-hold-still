@@ -35,6 +35,10 @@ def main() -> int:
         results[tag] = json.loads(path.read_text())["probes"]
 
     table = comparison_table(results)
+    if table.empty:
+        print("No probe has results for every model (too few labelled test volumes?).")
+        print("See the 'skipped' reasons printed by evaluate_encoder.py.")
+        return 1
     print(table.to_string(index=False))
     print('\n"within noise": the 95% ranges overlap, so the difference could be luck.')
     out = args.out or paths.eval_dir(root) / f"compare__{'__'.join(args.tags)}.png"

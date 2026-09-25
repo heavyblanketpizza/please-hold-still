@@ -22,6 +22,7 @@ src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
   masking.py        ForegroundBlockMasker: V-JEPA 2.1 multi-block masks on anatomy only
   jepa.py           JEPA: student + EMA teacher + predictor; one training step's loss
   probe.py          frozen-encoder features + linear probes + before/after table
+  training.py       training loop: warm-up, EMA, checkpoints/resume, disk check
   data/splits.py    split_of(): stable 80/20 train/test split by OpenNeuro study
 scripts/          command-line entry points (thin wrappers around the package)
 tests/            pytest; synthetic data only, never needs the SSD or network
@@ -50,6 +51,9 @@ uv run python scripts/preprocess.py --workers 8           # all volumes in the m
 uv run python scripts/smoke_test_encoder.py               # 1 batch through pretrained ViT-B
 uv run python scripts/visualize_clip.py --random 4        # PNG grids in outputs/ (git-ignored)
 uv run python scripts/evaluate_encoder.py --tag baseline  # probes on the original encoder
+uv run python scripts/train_jepa.py --run-name overfit --steps 200 --max-volumes 8 --predictor-only-steps 50
+caffeinate -i uv run python scripts/train_jepa.py --run-name run1 --steps 1000
+uv run python scripts/evaluate_encoder.py --tag run1 --checkpoint "$MRI_JEPA_DATA/runs/run1/encoder_last.pt"
 uv run python scripts/compare_models.py baseline run1     # before/after table + chart
 ```
 
@@ -142,43 +146,52 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
 - Cloud Claude sessions cannot reach huggingface.co or dl.fbaipublicfiles.com
   and have no SSD. Real downloads and model runs happen on the Mac.
 
+## Disk usage (per 200-volume experiment, on the data drive)
+
+- raw download: roughly 2–5 GB (`--dry-run` prints the exact number)
+- preprocessed: about 10–20 MB per volume, so 2–4 GB
+- V-JEPA checkpoint: downloaded once; its size is printed first, max 5 GB
+- each training run: `checkpoint_last.pt` about 1.7 GB (briefly twice that
+  while it is replaced) plus about 0.35 GB per `encoder_stepN.pt`. So about
+  5 GB for 1000 steps with `--save-every 250`. The script checks free space
+  before starting.
+- eval features: a few MB per evaluated model
+- Training tests (`VJEPA2_REPO` set) write GBs to pytest's temp folder. pytest
+  keeps them only for failed tests (`tmp_path_retention_policy`).
+
 ## Status and next steps (keep this section current)
 
 Built and tested on synthetic data, not yet run on real data: download (with
-`--status` and a notification when done), preprocessing, Dataset, V-JEPA
-loader and smoke test, visualisation, foreground masking, and the JEPA
-training step (`jepa.py`).
+`--status` and a notification when done), preprocessing, Dataset (with a
+stable train/test split by study), V-JEPA loader and smoke test,
+visualisation, foreground masking, the JEPA training step (`jepa.py`), the
+training script (`train_jepa.py`), and the probe evaluation + comparison
+(`evaluate_encoder.py`, `compare_models.py`). The full loop (evaluate → train →
+evaluate → compare) has been run end to end on fake volumes.
 
-Next, in order:
+Next, on the Mac, in order:
 
-1. **On the Mac, real data.** Run `download_openmind.py --inspect`, then
-   `--n 200 --dry-run`, and show the owner the size before downloading if it
-   is over 5 GB. Then download (under `caffeinate -i`), `preprocess.py --limit 5`,
+1. **Real data.** Run `download_openmind.py --inspect`, then `--n 200 --dry-run`
+   (show the owner the size if over 5 GB), then download, `preprocess.py --limit 5`,
    `preprocess.py`, `visualize_clip.py --random 4` (look at the PNGs), and
-   `smoke_test_encoder.py` with pretrained weights. Fix whatever real files
-   break. The CSV column names come from nnssl's code and have not yet been
-   checked against the actual file.
-2. **Probe baseline (before any training).** Freeze the *original* ViT-B,
-   mean-pool the tokens per clip, and fit a linear probe, e.g. T1w/T2w/FLAIR
-   from `modality`. Later add age and sex from the metadata. This is the
-   "before" number that continued pretraining must beat.
-3. ~~One JEPA train step~~ **done** (`src/mri_jepa/jepa.py`). It follows
-   Meta's `app/vjepa_2_1/train.py` with these choices:
-   - Targets are the teacher's **last layer only** (768 dims, layer-normed),
-     like the released distilled checkpoint. The predictor keeps its
-     pretrained body; only `predictor_proj` and `predictor_proj_context`
-     (which output 1664-dim ViT-G features) are replaced with new
-     `Linear(384, 768)` layers. Meta's 4-layer "deep supervision" targets
-     are a possible later experiment.
-   - One encoder and predictor pass per mask type, `mask_index=0`. Loss =
-     L1(targets) + λ · distance-weighted L1(context), with λ = 0.5 by
-     default; the training script can ramp it. EMA momentum is 0.99925.
-4. **Train script:** AdamW over the student and predictor, with a much lower LR
-   than from-scratch (6e-4). Start around 1e-4 with warmup, then tune. The
-   predictor's output layers are new, so consider a short warm-up where only
-   the predictor trains (student frozen), so random heads do not damage the
-   pretrained encoder. Use MPS, checkpoint/resume on the SSD, and first
-   overfit ~8 clips as a sanity check before a real run.
-5. **Probes again** on the continued-pretraining encoder vs the baseline.
-6. Whole-volume representation for the LLM stage: longer clips (up to 64
-   frames), slice stride > 1, or pooling several clips. Decide after step 5.
+   `smoke_test_encoder.py`. Fix whatever real files break. The CSV column names
+   come from nnssl's code and have not yet been checked against the file.
+2. **Baseline:** `evaluate_encoder.py --tag baseline` (original weights). Note
+   the scan-type probe may already be near 100%; the position-in-head, age
+   and sex probes are the informative ones.
+3. **Sanity run:** `train_jepa.py --run-name overfit --steps 200 --max-volumes 8
+   --predictor-only-steps 50`. The loss should fall clearly.
+4. **Real run:** `train_jepa.py --run-name run1 --steps 1000` (read the ETA it
+   prints; Ctrl-C saves; re-running resumes). Then `evaluate_encoder.py --tag
+   run1 --checkpoint .../encoder_last.pt` and `compare_models.py baseline run1`.
+5. With ~40 test volumes the 95% ranges are wide. A convincing comparison
+   probably needs more data (e.g. `--n 2000`). Check the size with the owner first.
+6. Later: Meta's 4-layer "deep supervision" targets; bf16 for speed; the
+   whole-volume representation for the LLM stage (longer clips, slice stride,
+   or pooling several clips).
+
+Design notes for the training step (`jepa.py`): targets are the teacher's last
+layer only (768-d, layer-normed). The predictor keeps its pretrained body; only
+its two ViT-G-sized output layers are replaced. Loss = L1(hidden) + 0.5 ·
+distance-weighted L1(visible). EMA 0.99925. The student is frozen for
+`predictor_only_steps` while the new layers catch up.

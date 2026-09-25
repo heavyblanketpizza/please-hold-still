@@ -40,6 +40,8 @@ environments = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# Training tests write GBs of checkpoints; only keep temp files of failed tests.
+tmp_path_retention_policy = "failed"
 # Deprecation noise from inside Meta's vjepa2 code, not ours.
 filterwarnings = ["ignore:.*sdp_kernel.*:FutureWarning"]
 

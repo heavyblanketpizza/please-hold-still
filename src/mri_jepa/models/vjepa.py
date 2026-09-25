@@ -159,13 +159,14 @@ def load_vjepa2_1(
     """Load a V-JEPA 2.1 encoder, in eval mode, on `device` (default: best available).
 
     - `pretrained=False` keeps random weights (for offline tests).
-    - `checkpoint`: use this local .pt instead of downloading.
+    - `checkpoint`: load this local .pt instead of downloading. A checkpoint
+      given explicitly is always loaded, even with `pretrained=False`.
     - `with_predictor=True` returns (encoder, predictor). Continued JEPA
       pretraining needs both.
     """
     spec = MODELS[model]
     encoder, predictor = build_architecture(model, hub_repo)
-    if pretrained:
+    if pretrained or checkpoint is not None:
         state = read_checkpoint(checkpoint or download_checkpoint(model, max_gb))
         encoder.load_state_dict(clean_state_dict(state[spec.encoder_key]), strict=True)
         if with_predictor:
