@@ -26,6 +26,7 @@ src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
   data/splits.py    split_of(): stable 80/20 train/test split by OpenNeuro study
 scripts/          command-line entry points (thin wrappers around the package)
 tests/            pytest; synthetic data only, never needs the SSD or network
+docs/             images used by README.md (small PNGs only)
 ```
 
 ## Commands

@@ -4,6 +4,24 @@ Continued self-supervised pretraining of Meta's V-JEPA 2.1 video encoder on 3D
 brain MRI (the OpenMind dataset), treating consecutive axial slices as video
 frames.
 
+## Results: run1
+
+1000 steps on 200 volumes (ViT-B, batch 8, 46 min on Apple silicon). Loss
+0.76 → 0.45. Linear probes on the frozen encoder, 33 held-out scans:
+
+| Task | Chance | Baseline | run1 |
+|---|---|---|---|
+| Scan type, balanced acc. ↑ | 0.33 | 0.91 | 0.97 |
+| Sex, balanced acc. ↑ | 0.50 | 0.79 | 0.79 |
+| Age, MAE years ↓ | 11.4 | 9.8 | 8.5 |
+| Slice height, MAE ↓ | 0.26 | 0.062 | 0.059 |
+
+Baseline is the original V-JEPA 2.1 ViT-B. Three scores improve and one holds,
+but every 95% range overlaps the baseline's, so none of the gains is
+significant yet.
+
+![Probe scores, baseline vs run1](docs/run1_vs_baseline.png)
+
 ## Setup (Mac)
 
 ```bash
