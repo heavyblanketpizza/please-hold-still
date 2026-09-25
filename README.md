@@ -39,8 +39,11 @@ See `CLAUDE.md` for conventions and the full command list.
 
 ## License
 
-Code in this repo: [Apache 2.0](LICENSE). Not included, and not covered by it:
+The code in this repo is licensed under [Apache 2.0](LICENSE). The license
+covers that code only. No rights are claimed to the model or data below. They
+belong to their owners, keep their own licenses, and are not stored here:
 
-- [OpenMind dataset](https://huggingface.co/datasets/MIC-DKFZ/OpenMind): CC BY 4.0.
-- [V-JEPA 2.1](https://github.com/facebookresearch/vjepa2) code and weights: Meta's
-  license (MIT). Downloaded at run time.
+- [V-JEPA 2.1](https://github.com/facebookresearch/vjepa2) code and weights,
+  by Meta: MIT.
+- [OpenMind dataset](https://huggingface.co/datasets/MIC-DKFZ/OpenMind):
+  CC BY 4.0. Built from OpenNeuro studies, each under its own terms.
