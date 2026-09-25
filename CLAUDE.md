@@ -15,6 +15,7 @@ src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
   paths.py        data-root helpers (SSD location, caches)
   data/openmind.py  OpenMind CSV parsing, subset selection, HF download
   data/preprocess.py  NIfTI -> RAS, 1 mm, cropped, normalised .npy + JSON
+  data/dataset.py   MRISliceClipDataset: (T,3,256,256) clips + (T,256,256) masks
 scripts/          command-line entry points (thin wrappers around the package)
 tests/            pytest; synthetic data only, never needs the SSD or network
 ```
@@ -75,6 +76,11 @@ uv run python scripts/preprocess.py --workers 8           # all volumes in the m
   affine, clip values). It is written last, so it doubles as the "done" marker.
 - Axial slice k is `image[k]`. Load with `np.load(path, mmap_mode="r")` to read
   a few slices without pulling the whole volume into memory.
+- `MRISliceClipDataset` returns `video` (T, 3, 256, 256) float32 and `mask`
+  (T, 256, 256) bool. It centre-pads/crops in-plane at 1 mm and never stretches.
+  Frame row = posterior→anterior and column = left→right (no flips), so plot
+  with `origin="lower"`. The V-JEPA encoder wants (B, 3, T, H, W): use
+  `video.permute(0, 2, 1, 3, 4)` on a batch.
 
 ## Hardware and storage
 
