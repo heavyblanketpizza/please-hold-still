@@ -28,7 +28,7 @@ from mri_jepa.notify import notify
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    p.add_argument("--data-root", type=Path, default=None, help="default: $MRI_JEPA_DATA or SSD")
+    p.add_argument("--data-root", type=Path, default=None, help="default: $MRI_JEPA_DATA")
     p.add_argument("--workers", type=int, default=min(8, os.cpu_count() or 1))
     p.add_argument("--limit", type=int, default=None, help="only the first N volumes")
     p.add_argument("--overwrite", action="store_true", help="redo finished volumes")

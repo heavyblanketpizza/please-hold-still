@@ -12,7 +12,7 @@ each step small, and commit after each step with the tests passing.
 
 ```
 src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
-  paths.py        data-root helpers (SSD location, caches)
+  paths.py        data-root helpers ($MRI_JEPA_DATA, caches)
   data/openmind.py  OpenMind CSV parsing, subset selection, HF download
   data/preprocess.py  NIfTI -> RAS, 1 mm, cropped, normalised .npy + JSON
   data/dataset.py   MRISliceClipDataset: (T,3,256,256) clips + (T,256,256) masks
@@ -123,10 +123,13 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
 - Local compute: MacBook, Apple silicon, 96 GB unified memory. PyTorch runs on
   the `mps` device. Set `PYTORCH_ENABLE_MPS_FALLBACK=1` so ops that MPS lacks
   fall back to CPU instead of crashing.
-- Data root: external SSD at `/Volumes/Just for Fun/mri-jepa-data`, which you can
-  override with `MRI_JEPA_DATA=/some/other/folder`. The path contains spaces,
-  so always quote it in the shell. If the SSD is unplugged,
+- Data root: a folder on an external drive, set by `MRI_JEPA_DATA` (the
+  owner exports it in `~/.zshrc`), or `--data-root` on any script. Never write a
+  machine-specific path into the repo: code, docs and tests take it from the
+  environment. There is no default. If the variable is unset,
+  `paths.data_root()` raises. If the drive is unplugged,
   `paths.ensure_data_root()` raises instead of writing to the internal disk.
+  Drive names can contain spaces, so always quote the path in the shell.
 - Caches redirected onto the data root: `HF_HUB_CACHE` and `HF_XET_CACHE` →
   `<root>/hf_cache/` (not `HF_HOME`, which would hide the `hf auth login` token),
   `TORCH_HOME` → `<root>/torch_home`.

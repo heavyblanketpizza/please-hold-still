@@ -22,7 +22,7 @@ from mri_jepa.viz import plot_clip_grid
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    p.add_argument("--data-root", type=Path, default=None, help="default: $MRI_JEPA_DATA or SSD")
+    p.add_argument("--data-root", type=Path, default=None, help="default: $MRI_JEPA_DATA")
     p.add_argument("--index", type=int, default=0, help="which volume (sorted by id)")
     p.add_argument("--start", type=int, default=None, help="first slice (default: central clip)")
     p.add_argument("--random", type=int, default=0, help="plot N random volumes + clip starts")

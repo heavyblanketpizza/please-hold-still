@@ -1,9 +1,11 @@
 """Where data lives on disk.
 
 Everything large (raw downloads, preprocessed arrays, model checkpoints, the
-Hugging Face cache) goes under one *data root* on the external SSD, never on
-the Mac's internal disk. Override the location with the MRI_JEPA_DATA
-environment variable, e.g. for tests or another machine.
+Hugging Face cache) goes under one *data root*, ideally on an external drive.
+Its location comes from the MRI_JEPA_DATA environment variable (or a script's
+--data-root flag). There is deliberately no built-in default: machine-specific
+paths stay out of the repository, and a missing setting stops the scripts
+instead of silently filling the internal disk.
 """
 
 from __future__ import annotations
@@ -12,26 +14,32 @@ import os
 from pathlib import Path
 
 ENV_VAR = "MRI_JEPA_DATA"
-DEFAULT_DATA_ROOT = Path("/Volumes/Just for Fun/mri-jepa-data")
 
 
 def data_root() -> Path:
-    """The data root: $MRI_JEPA_DATA if set, else the folder on the SSD."""
-    return Path(os.environ.get(ENV_VAR, DEFAULT_DATA_ROOT)).expanduser()
+    """The data root from $MRI_JEPA_DATA. Raises a helpful error if it is not set."""
+    value = os.environ.get(ENV_VAR, "").strip()
+    if not value:
+        raise RuntimeError(
+            f"{ENV_VAR} is not set. Add a line like this to ~/.zshrc, then open a "
+            f'new terminal:\n    export {ENV_VAR}="/path/to/your/data-folder"\n'
+            "(or pass --data-root to the script)."
+        )
+    return Path(value).expanduser()
 
 
 def ensure_data_root(root: Path | None = None) -> Path:
     """Create the data root if needed and return it.
 
-    Refuses to create the *parent* folder. If the SSD is not plugged in,
-    /Volumes/Just for Fun does not exist, and silently creating it would put
-    gigabytes of data on the internal disk instead.
+    Refuses to create the *parent* folder. If an external drive is not plugged
+    in, its /Volumes/<name> folder does not exist, and silently creating it
+    would put gigabytes of data on the internal disk instead.
     """
     root = Path(root) if root is not None else data_root()
     if not root.parent.is_dir():
         raise FileNotFoundError(
-            f"{root.parent} does not exist. Is the external SSD plugged in? "
-            f"(Or set {ENV_VAR} to another folder.)"
+            f"{root.parent} does not exist. Is the external drive plugged in? "
+            f"(Or point {ENV_VAR} at another folder.)"
         )
     root.mkdir(exist_ok=True)
     return root
