@@ -189,9 +189,13 @@ Next, on the Mac, in order:
    fix), and `visualize_clip.py` PNGs look right. A few scans cover only a
    slab of the head (smallest crop 55 mm front to back). Still to do:
    `smoke_test_encoder.py`.
-2. **Baseline:** `evaluate_encoder.py --tag baseline` (original weights). Note
-   the scan-type probe may already be near 100%; the position-in-head, age
-   and sex probes are the informative ones.
+2. **Baseline:** done (2026-09-26), `<root>/eval/baseline/`. 200 volumes,
+   33 test volumes from 20 studies. Scan type 0.91 balanced accuracy (95%
+   range 0.80–1.00, chance 0.33); sex 0.79 (0.64–0.92, chance 0.5); age MAE
+   9.8 years (6.9–12.9; guessing the mean gives 11.4, R² 0.24); slice height
+   MAE 0.062 of head height (0.055–0.070, chance 0.26, R² 0.93). Age is the
+   weakest and has the most room to improve. `smoke_test_encoder.py` passed
+   on real data (0.74 s per 2-clip batch on mps).
 3. **Sanity run:** `train_jepa.py --run-name overfit --steps 200 --max-volumes 8
    --predictor-only-steps 50`. The loss should fall clearly.
 4. **Real run:** `train_jepa.py --run-name run1 --steps 1000` (read the ETA it
