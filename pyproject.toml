@@ -1,0 +1,39 @@
+[project]
+name = "mri-jepa"
+version = "0.1.0"
+description = "Self-supervised 3D brain-MRI encoder: continued V-JEPA 2.1 pretraining on OpenMind"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.17,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+# Only resolve for the two machines we actually use: an Apple-silicon Mac and
+# Linux (cloud / CI). PyTorch has no wheels for Intel Macs, so leaving that
+# platform in would make `uv lock` fail.
+environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux'",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

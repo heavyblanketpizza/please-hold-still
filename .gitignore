@@ -1,0 +1,20 @@
+# Python / uv
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Data and model files never go in git (they live on the external SSD)
+data/
+*.nii
+*.nii.gz
+*.npy
+*.pt
+*.pth
+outputs/
+
+# macOS
+.DS_Store
+._*
