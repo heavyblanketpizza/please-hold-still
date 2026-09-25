@@ -6,14 +6,16 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# Data and model files never go in git (they live on the external SSD)
-data/
+# Data and model files never go in git (they live on the external drive).
+# Leading "/" = only the folder at the repo root. A bare "data/" also matched
+# the code folder src/mri_jepa/data/, which then silently never got committed.
+/data/
 *.nii
 *.nii.gz
 *.npy
 *.pt
 *.pth
-outputs/
+/outputs/
 
 # macOS
 .DS_Store
