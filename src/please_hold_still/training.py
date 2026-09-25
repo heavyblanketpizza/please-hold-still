@@ -37,11 +37,11 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
-from mri_jepa import paths
-from mri_jepa.data.dataset import MRISliceClipDataset
-from mri_jepa.jepa import CONTEXT_LOSS_WEIGHT, EMA_MOMENTUM, JEPA
-from mri_jepa.masking import ForegroundBlockMasker, token_foreground
-from mri_jepa.models.vjepa import load_vjepa2_1, pick_device
+from please_hold_still import paths
+from please_hold_still.data.dataset import MRISliceClipDataset
+from please_hold_still.jepa import CONTEXT_LOSS_WEIGHT, EMA_MOMENTUM, JEPA
+from please_hold_still.masking import ForegroundBlockMasker, token_foreground
+from please_hold_still.models.vjepa import load_vjepa2_1, pick_device
 
 
 @dataclass

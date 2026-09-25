@@ -5,7 +5,7 @@ How a step works (follows Meta's app/vjepa_2_1/train.py at VJEPA_COMMIT):
 1. The *teacher* (a frozen copy of the encoder) sees the whole clip. Its
    output tokens, layer-normalised, are the targets.
 2. The *student* encoder sees only the context tokens (the rest are hidden by
-   the masks from `mri_jepa.masking`).
+   the masks from `please_hold_still.masking`).
 3. The *predictor* takes the student's tokens and guesses the teacher's
    tokens at the hidden positions ("target predictions"). It also re-predicts
    the visible ones ("context predictions", V-JEPA 2.1's dense loss).
@@ -32,7 +32,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from mri_jepa.models.vjepa import set_predictor_grid
+from please_hold_still.models.vjepa import set_predictor_grid
 
 EMA_MOMENTUM = 0.99925  # V-JEPA 2.1 configs
 CONTEXT_LOSS_WEIGHT = 0.5  # lambda_value_vid in V-JEPA 2.1 configs

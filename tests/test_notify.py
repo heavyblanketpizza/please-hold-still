@@ -1,6 +1,6 @@
 import subprocess
 
-from mri_jepa import notify as nt
+from please_hold_still import notify as nt
 
 
 def test_script_escapes_quotes():

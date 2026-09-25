@@ -20,15 +20,15 @@ from pathlib import Path
 
 import pandas as pd
 
-from mri_jepa import paths
-from mri_jepa.data.openmind import MANIFEST_NAME
-from mri_jepa.data.preprocess import PreprocessConfig, process_many
-from mri_jepa.notify import notify
+from please_hold_still import paths
+from please_hold_still.data.openmind import MANIFEST_NAME
+from please_hold_still.data.preprocess import PreprocessConfig, process_many
+from please_hold_still.notify import notify
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    p.add_argument("--data-root", type=Path, default=None, help="default: $MRI_JEPA_DATA")
+    p.add_argument("--data-root", type=Path, default=None, help="default: $PLEASE_HOLD_STILL_DATA")
     p.add_argument("--workers", type=int, default=min(8, os.cpu_count() or 1))
     p.add_argument("--limit", type=int, default=None, help="only the first N volumes")
     p.add_argument("--overwrite", action="store_true", help="redo finished volumes")

@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from mri_jepa import paths
+from please_hold_still import paths
 
 REPO_ID = "AnonRes/OpenMind"
 METADATA_FILENAME = "openneuro_metadata.csv"

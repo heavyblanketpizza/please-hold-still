@@ -10,8 +10,8 @@ import os
 import pytest
 import torch
 
-from mri_jepa import jepa
-from mri_jepa.masking import ForegroundBlockMasker, token_foreground
+from please_hold_still import jepa
+from please_hold_still.masking import ForegroundBlockMasker, token_foreground
 
 VJEPA2_REPO = os.environ.get("VJEPA2_REPO")
 needs_repo = pytest.mark.skipif(not VJEPA2_REPO, reason="set VJEPA2_REPO to a vjepa2 clone")
@@ -43,7 +43,7 @@ def test_gather_tokens():
 
 @pytest.fixture
 def model():
-    from mri_jepa.models.vjepa import load_vjepa2_1
+    from please_hold_still.models.vjepa import load_vjepa2_1
 
     torch.manual_seed(0)
     enc, pred = load_vjepa2_1(
@@ -69,7 +69,7 @@ def test_prediction_heads_match_teacher_width(model):
 
 @needs_repo
 def test_predictor_uses_the_real_token_grid(model):
-    from mri_jepa.models.vjepa import set_predictor_grid
+    from please_hold_still.models.vjepa import set_predictor_grid
 
     attn = model.predictor.predictor_blocks[0].attn
     set_predictor_grid(model.predictor, 16, 16)

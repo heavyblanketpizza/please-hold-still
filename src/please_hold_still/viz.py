@@ -99,7 +99,7 @@ def plot_probe_comparison(results: dict[str, dict], out_path: str | Path) -> Pat
     """One small panel per probe task; one bar per model, with its 95% range.
 
     results: {model name: {task: probe result dict}} as returned by
-    `mri_jepa.probe.run_probes`. Tasks skipped for any model are left out.
+    `please_hold_still.probe.run_probes`. Tasks skipped for any model are left out.
     """
     from matplotlib.patches import Patch
 

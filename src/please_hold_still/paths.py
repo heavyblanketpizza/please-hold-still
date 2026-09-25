@@ -2,7 +2,7 @@
 
 Everything large (raw downloads, preprocessed arrays, model checkpoints, the
 Hugging Face cache) goes under one *data root*, ideally on an external drive.
-Its location comes from the MRI_JEPA_DATA environment variable (or a script's
+Its location comes from the PLEASE_HOLD_STILL_DATA environment variable (or a script's
 --data-root flag). There is deliberately no built-in default: machine-specific
 paths stay out of the repository, and a missing setting stops the scripts
 instead of silently filling the internal disk.
@@ -13,11 +13,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-ENV_VAR = "MRI_JEPA_DATA"
+ENV_VAR = "PLEASE_HOLD_STILL_DATA"
 
 
 def data_root() -> Path:
-    """The data root from $MRI_JEPA_DATA. Raises a helpful error if it is not set."""
+    """The data root from $PLEASE_HOLD_STILL_DATA. Raises a helpful error if it is not set."""
     value = os.environ.get(ENV_VAR, "").strip()
     if not value:
         raise RuntimeError(

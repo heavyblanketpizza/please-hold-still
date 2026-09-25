@@ -1,4 +1,4 @@
-# mri-jepa
+# please-hold-still
 
 Self-supervised 3D brain-MRI encoder. We continue pretraining Meta's V-JEPA 2.1
 (a video JEPA) on the OpenMind dataset by treating a stack of consecutive axial
@@ -11,8 +11,8 @@ each step small, and commit after each step with the tests passing.
 ## Layout
 
 ```
-src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
-  paths.py        data-root helpers ($MRI_JEPA_DATA, caches)
+src/please_hold_still/  importable package (src layout; there is NO src/__init__.py)
+  paths.py        data-root helpers ($PLEASE_HOLD_STILL_DATA, caches)
   data/openmind.py  OpenMind CSV parsing, subset selection, HF download
   data/preprocess.py  NIfTI -> RAS, 1 mm, cropped, normalised .npy + JSON
   data/dataset.py   MRISliceClipDataset: (T,3,256,256) clips + (T,256,256) masks
@@ -55,7 +55,7 @@ uv run python scripts/visualize_clip.py --random 4        # PNG grids in outputs
 uv run python scripts/evaluate_encoder.py --tag baseline  # probes on the original encoder
 uv run python scripts/train_jepa.py --run-name overfit --steps 200 --max-volumes 8 --predictor-only-steps 50
 caffeinate -i uv run python scripts/train_jepa.py --run-name run1 --steps 1000
-uv run python scripts/evaluate_encoder.py --tag run1 --checkpoint "$MRI_JEPA_DATA/runs/run1/encoder_last.pt"
+uv run python scripts/evaluate_encoder.py --tag run1 --checkpoint "$PLEASE_HOLD_STILL_DATA/runs/run1/encoder_last.pt"
 uv run python scripts/compare_models.py baseline run1     # before/after table + chart
 ```
 
@@ -70,7 +70,7 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
 
 - Python 3.12, managed by uv. Commit `uv.lock`. Never `pip install` into the venv.
 - All large files live under the data root (see "Hardware and storage"), never in
-  git. Paths come from `mri_jepa.paths`, never hard-coded in scripts.
+  git. Paths come from `please_hold_still.paths`, never hard-coded in scripts.
 - Scripts must be safe to re-run: skip work already done, write files atomically
   (write to a temp name, then `os.replace`).
 - Guard anything that downloads more than 5 GB or runs longer than a few
@@ -117,9 +117,9 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
 
 ## V-JEPA 2.1
 
-- Always load through `mri_jepa.models.vjepa`. Never call `torch.hub.load(...,
-  pretrained=True)` directly: upstream's `VJEPA_BASE_URL` points at
-  `http://localhost:8300`, so it fails. The helper builds the architecture with
+- Always load through `please_hold_still.models.vjepa`. Never call
+  `torch.hub.load(..., pretrained=True)` directly: upstream's `VJEPA_BASE_URL`
+  points at `http://localhost:8300`, so it fails. The helper builds the architecture with
   `pretrained=False` from pinned commit `VJEPA_COMMIT`, downloads
   `https://dl.fbaipublicfiles.com/vjepa2/<name>.pt` itself, and loads the
   `ema_encoder` weights (plus `predictor` if asked).
@@ -127,7 +127,7 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
   Trained at 384 px, but RoPE lets it run at 256. Input is (B, 3, T, H, W),
   output is (B, T/2 · H/16 · W/16, 768). For 16×256×256 that is 2048 tokens.
 - vjepa2's `src/` and `app/` are namespace packages. Our repo's `src/` merges
-  with theirs harmlessly, because we only have `src/mri_jepa`. Never add
+  with theirs harmlessly, because we only have `src/please_hold_still`. Never add
   `src/__init__.py` or top-level packages named `hub`, `models`, `masks`,
   `utils` or `datasets` under `src/`.
 - Predictor grid pitfall: the predictor turns flat token indices into
@@ -141,10 +141,10 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
 - Local compute: MacBook, Apple silicon, 96 GB unified memory. PyTorch runs on
   the `mps` device. Set `PYTORCH_ENABLE_MPS_FALLBACK=1` so ops that MPS lacks
   fall back to CPU instead of crashing.
-- Data root: a folder on an external drive, set by `MRI_JEPA_DATA` (the
-  owner exports it in `~/.zshrc`), or `--data-root` on any script. Never write a
-  machine-specific path into the repo: code, docs and tests take it from the
-  environment. There is no default. If the variable is unset,
+- Data root: a folder on an external drive, set by `PLEASE_HOLD_STILL_DATA`
+  (the owner exports it in `~/.zshrc`), or `--data-root` on any script. Never
+  write a machine-specific path into the repo: code, docs and tests take it
+  from the environment. There is no default. If the variable is unset,
   `paths.data_root()` raises. If the drive is unplugged,
   `paths.ensure_data_root()` raises instead of writing to the internal disk.
   Drive names can contain spaces, so always quote the path in the shell.

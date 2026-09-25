@@ -2,7 +2,7 @@ import matplotlib.image as mpimg
 import numpy as np
 import torch
 
-from mri_jepa.viz import plot_clip_grid
+from please_hold_still.viz import plot_clip_grid
 
 
 def _clip(t=16, size=64):

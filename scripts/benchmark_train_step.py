@@ -25,11 +25,11 @@ warnings.filterwarnings("ignore", message=".*sdp_kernel.*", category=FutureWarni
 
 import torch  # noqa: E402
 
-from mri_jepa import paths  # noqa: E402
-from mri_jepa.jepa import JEPA  # noqa: E402
-from mri_jepa.masking import ForegroundBlockMasker, token_foreground  # noqa: E402
-from mri_jepa.models.vjepa import load_vjepa2_1, pick_device  # noqa: E402
-from mri_jepa.training import param_groups  # noqa: E402
+from please_hold_still import paths  # noqa: E402
+from please_hold_still.jepa import JEPA  # noqa: E402
+from please_hold_still.masking import ForegroundBlockMasker, token_foreground  # noqa: E402
+from please_hold_still.models.vjepa import load_vjepa2_1, pick_device  # noqa: E402
+from please_hold_still.training import param_groups  # noqa: E402
 
 
 def fake_batch(batch_size: int, frames: int, size: int):
@@ -103,7 +103,7 @@ def main() -> int:
     p.add_argument("--bf16", action="store_true", help="also time bf16 mixed precision")
     p.add_argument("--num-frames", type=int, default=16)
     p.add_argument("--size", type=int, default=256)
-    p.add_argument("--data-root", type=Path, default=None, help="default: $MRI_JEPA_DATA")
+    p.add_argument("--data-root", type=Path, default=None, help="default: $PLEASE_HOLD_STILL_DATA")
     p.add_argument("--hub-repo", default=None, help="local clone of facebookresearch/vjepa2")
     p.add_argument("--random-weights", action="store_true", help="skip the checkpoint download")
     p.add_argument("--device", default=None, help="mps / cuda / cpu (default: best available)")

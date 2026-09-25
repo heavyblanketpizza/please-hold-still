@@ -1,5 +1,5 @@
 [project]
-name = "mri-jepa"
+name = "please-hold-still"
 version = "0.1.0"
 description = "Self-supervised 3D brain-MRI encoder: continued V-JEPA 2.1 pretraining on OpenMind"
 readme = "README.md"

@@ -33,8 +33,8 @@ from sklearn.metrics import balanced_accuracy_score, mean_absolute_error, r2_sco
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from mri_jepa.data.dataset import MRISliceClipDataset
-from mri_jepa.masking import token_foreground
+from please_hold_still.data.dataset import MRISliceClipDataset
+from please_hold_still.masking import token_foreground
 
 MIN_TRAIN, MIN_TEST = 10, 4
 

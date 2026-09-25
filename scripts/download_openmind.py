@@ -10,7 +10,7 @@ Scale up later with a bigger --n. The pick for a bigger n includes the smaller
 one, so files already downloaded are reused. The script prints the total size
 first and stops if it is above --max-gb (default 5).
 
-Files land in <data root>/raw/ ($MRI_JEPA_DATA, see README). Re-running skips
+Files land in <data root>/raw/ ($PLEASE_HOLD_STILL_DATA, see README). Re-running skips
 finished files.
 On a Mac you get a notification (with a sound) when it finishes or fails.
 
@@ -28,16 +28,16 @@ import shutil
 import sys
 from pathlib import Path
 
-from mri_jepa import paths
-from mri_jepa.data import openmind as om
-from mri_jepa.notify import notify
+from please_hold_still import paths
+from please_hold_still.data import openmind as om
+from please_hold_still.notify import notify
 
 GB = 1024**3
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    p.add_argument("--data-root", type=Path, default=None, help="default: $MRI_JEPA_DATA")
+    p.add_argument("--data-root", type=Path, default=None, help="default: $PLEASE_HOLD_STILL_DATA")
     p.add_argument("--repo-id", default=om.REPO_ID)
     p.add_argument("--inspect", action="store_true", help="only fetch + summarise the CSV")
     p.add_argument("--n", type=int, default=200, help="total number of volumes (default 200)")

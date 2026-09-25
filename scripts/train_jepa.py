@@ -9,7 +9,7 @@ Sanity check first: can it memorise a handful of volumes? The loss should fall a
 
 Afterwards, evaluate the trained encoder and compare with the original:
     uv run python scripts/evaluate_encoder.py --tag run1 \
-        --checkpoint "$MRI_JEPA_DATA/runs/run1/encoder_last.pt"
+        --checkpoint "$PLEASE_HOLD_STILL_DATA/runs/run1/encoder_last.pt"
     uv run python scripts/compare_models.py baseline run1
 """
 
@@ -25,9 +25,9 @@ from pathlib import Path
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 warnings.filterwarnings("ignore", message=".*sdp_kernel.*", category=FutureWarning)
 
-from mri_jepa import paths  # noqa: E402
-from mri_jepa.notify import notify  # noqa: E402
-from mri_jepa.training import TrainConfig, train  # noqa: E402
+from please_hold_still import paths  # noqa: E402
+from please_hold_still.notify import notify  # noqa: E402
+from please_hold_still.training import TrainConfig, train  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -41,7 +41,7 @@ def parse_args() -> argparse.Namespace:
         else:
             kind = float if f.name == "grad_clip" else type(value)
             p.add_argument(flag, type=kind, default=value, help=f"(default: {value})")
-    p.add_argument("--data-root", type=Path, default=None, help="default: $MRI_JEPA_DATA")
+    p.add_argument("--data-root", type=Path, default=None, help="default: $PLEASE_HOLD_STILL_DATA")
     p.add_argument("--hub-repo", default=None, help="local clone of facebookresearch/vjepa2")
     p.add_argument(
         "--checkpoint",

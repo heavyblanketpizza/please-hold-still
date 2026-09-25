@@ -2,7 +2,7 @@
 
 import torch
 
-from mri_jepa.masking import (
+from please_hold_still.masking import (
     VJEPA21_MASKS,
     BlockMaskConfig,
     ForegroundBlockMasker,

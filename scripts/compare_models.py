@@ -13,15 +13,15 @@ import json
 import sys
 from pathlib import Path
 
-from mri_jepa import paths
-from mri_jepa.probe import comparison_table
-from mri_jepa.viz import plot_probe_comparison
+from please_hold_still import paths
+from please_hold_still.probe import comparison_table
+from please_hold_still.viz import plot_probe_comparison
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     p.add_argument("tags", nargs="+", help="evaluated models, first = reference (e.g. baseline)")
-    p.add_argument("--data-root", type=Path, default=None, help="default: $MRI_JEPA_DATA")
+    p.add_argument("--data-root", type=Path, default=None, help="default: $PLEASE_HOLD_STILL_DATA")
     p.add_argument("--out", type=Path, default=None, help="chart path (.png)")
     args = p.parse_args()
 

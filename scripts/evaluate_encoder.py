@@ -5,7 +5,7 @@
 
 "After" (an encoder snapshot saved by train_jepa.py):
     uv run python scripts/evaluate_encoder.py --tag run1 \
-        --checkpoint "$MRI_JEPA_DATA/runs/run1/encoder_last.pt"
+        --checkpoint "$PLEASE_HOLD_STILL_DATA/runs/run1/encoder_last.pt"
 
 Then compare:
     uv run python scripts/compare_models.py baseline run1
@@ -29,11 +29,11 @@ warnings.filterwarnings("ignore", message=".*sdp_kernel.*", category=FutureWarni
 
 import numpy as np  # noqa: E402
 
-from mri_jepa import paths  # noqa: E402
-from mri_jepa.data.openmind import METADATA_FILENAME  # noqa: E402
-from mri_jepa.models.vjepa import MODELS, load_vjepa2_1_encoder  # noqa: E402
-from mri_jepa.notify import notify  # noqa: E402
-from mri_jepa.probe import (  # noqa: E402
+from please_hold_still import paths  # noqa: E402
+from please_hold_still.data.openmind import METADATA_FILENAME  # noqa: E402
+from please_hold_still.models.vjepa import MODELS, load_vjepa2_1_encoder  # noqa: E402
+from please_hold_still.notify import notify  # noqa: E402
+from please_hold_still.probe import (  # noqa: E402
     attach_metadata_labels,
     comparison_table,
     extract_features,
@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="encoder .pt from training (default: original pretrained weights)",
     )
-    p.add_argument("--data-root", type=Path, default=None, help="default: $MRI_JEPA_DATA")
+    p.add_argument("--data-root", type=Path, default=None, help="default: $PLEASE_HOLD_STILL_DATA")
     p.add_argument("--model", default="vit_base", choices=sorted(MODELS))
     p.add_argument("--hub-repo", default=None, help="local clone of facebookresearch/vjepa2")
     p.add_argument("--random-weights", action="store_true", help="untrained network (testing)")

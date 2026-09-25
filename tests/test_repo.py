@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
     shutil.which("git") is None or not (ROOT / ".git").exists(), reason="not a git checkout"
 )
 def test_no_source_file_is_ignored_by_git():
-    """A too-broad .gitignore rule once hid src/mri_jepa/data/ from every commit."""
+    """A too-broad .gitignore rule once hid src/please_hold_still/data/ from every commit."""
     files = [
         str(p.relative_to(ROOT))
         for folder in ("src", "scripts", "tests")

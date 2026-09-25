@@ -29,7 +29,7 @@ from pathlib import Path
 
 import torch
 
-from mri_jepa import paths
+from please_hold_still import paths
 
 VJEPA_REPO = "facebookresearch/vjepa2"
 VJEPA_COMMIT = "204698b45b3712590f06245fbfba32d3be539812"  # main on 2026-03-23

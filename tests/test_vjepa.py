@@ -12,7 +12,7 @@ import os
 import pytest
 import torch
 
-from mri_jepa.models import vjepa
+from please_hold_still.models import vjepa
 
 VJEPA2_REPO = os.environ.get("VJEPA2_REPO")
 needs_repo = pytest.mark.skipif(not VJEPA2_REPO, reason="set VJEPA2_REPO to a vjepa2 clone")

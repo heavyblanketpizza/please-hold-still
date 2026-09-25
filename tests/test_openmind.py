@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mri_jepa.data import openmind as om
+from please_hold_still.data import openmind as om
 
 
 @pytest.fixture

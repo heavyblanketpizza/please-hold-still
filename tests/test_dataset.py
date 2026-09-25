@@ -6,8 +6,8 @@ import torch
 from conftest import make_phantom
 from torch.utils.data import DataLoader
 
-from mri_jepa.data import preprocess as pp
-from mri_jepa.data.dataset import MRISliceClipDataset, center_pad_crop, find_volumes
+from please_hold_still.data import preprocess as pp
+from please_hold_still.data.dataset import MRISliceClipDataset, center_pad_crop, find_volumes
 
 
 @pytest.fixture(scope="module")
@@ -123,7 +123,7 @@ def test_empty_folder_raises(tmp_path):
 
 
 def test_split_is_stable_and_roughly_80_20():
-    from mri_jepa.data.splits import split_of
+    from please_hold_still.data.splits import split_of
 
     ids = [f"ds{i:06d}" for i in range(2000)]
     sides = [split_of(i) for i in ids]

@@ -9,9 +9,9 @@ import torch.nn.functional as F
 from conftest import make_phantom
 from torch import nn
 
-from mri_jepa import probe
-from mri_jepa.data import preprocess as pp
-from mri_jepa.viz import plot_probe_comparison
+from please_hold_still import probe
+from please_hold_still.data import preprocess as pp
+from please_hold_still.viz import plot_probe_comparison
 
 
 def test_clip_starts():

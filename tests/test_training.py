@@ -7,8 +7,8 @@ import pytest
 import torch
 from conftest import make_phantom
 
-from mri_jepa.data import preprocess as pp
-from mri_jepa.training import TrainConfig, lr_at, train
+from please_hold_still.data import preprocess as pp
+from please_hold_still.training import TrainConfig, lr_at, train
 
 VJEPA2_REPO = os.environ.get("VJEPA2_REPO")
 needs_repo = pytest.mark.skipif(not VJEPA2_REPO, reason="set VJEPA2_REPO to a vjepa2 clone")
@@ -106,7 +106,7 @@ def test_training_saves_logs_and_resumes(data_root):
 
 @needs_repo
 def test_encoder_snapshot_loads_with_the_standard_loader(data_root):
-    from mri_jepa.models.vjepa import load_vjepa2_1_encoder
+    from please_hold_still.models.vjepa import load_vjepa2_1_encoder
 
     run(data_root, tiny_config(run_name="snap", steps=2))
     path = data_root / "runs" / "snap" / "encoder_last.pt"
@@ -133,7 +133,7 @@ def test_disk_estimate_counts_checkpoints_and_snapshots():
 
     from torch import nn
 
-    from mri_jepa.training import disk_needed
+    from please_hold_still.training import disk_needed
 
     student, teacher, predictor = nn.Linear(10, 10), nn.Linear(10, 10), nn.Linear(10, 5)
     model = nn.Module()

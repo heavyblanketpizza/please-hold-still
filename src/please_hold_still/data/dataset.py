@@ -20,7 +20,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from mri_jepa.data.splits import split_of
+from please_hold_still.data.splits import split_of
 
 BACKGROUND = -1.0
 

@@ -1,6 +1,6 @@
 import pytest
 
-from mri_jepa import paths
+from please_hold_still import paths
 
 
 def test_env_var_sets_the_data_root(monkeypatch, tmp_path):
@@ -12,7 +12,7 @@ def test_env_var_sets_the_data_root(monkeypatch, tmp_path):
 
 def test_missing_setting_gives_a_helpful_error(monkeypatch):
     monkeypatch.delenv(paths.ENV_VAR, raising=False)
-    with pytest.raises(RuntimeError, match="MRI_JEPA_DATA is not set"):
+    with pytest.raises(RuntimeError, match="PLEASE_HOLD_STILL_DATA is not set"):
         paths.data_root()
     with pytest.raises(RuntimeError):
         paths.ensure_data_root()

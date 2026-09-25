@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from conftest import make_phantom
 
-from mri_jepa.data import preprocess as pp
+from please_hold_still.data import preprocess as pp
 
 
 def test_load_volume_is_channel_first_with_affine(phantom):

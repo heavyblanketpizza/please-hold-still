@@ -28,14 +28,14 @@ warnings.filterwarnings("ignore", message=".*sdp_kernel.*", category=FutureWarni
 import torch  # noqa: E402
 from torch.utils.data import DataLoader  # noqa: E402
 
-from mri_jepa import paths  # noqa: E402
-from mri_jepa.data.dataset import MRISliceClipDataset  # noqa: E402
-from mri_jepa.models.vjepa import MODELS, load_vjepa2_1_encoder, num_tokens  # noqa: E402
+from please_hold_still import paths  # noqa: E402
+from please_hold_still.data.dataset import MRISliceClipDataset  # noqa: E402
+from please_hold_still.models.vjepa import MODELS, load_vjepa2_1_encoder, num_tokens  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    p.add_argument("--data-root", type=Path, default=None, help="default: $MRI_JEPA_DATA")
+    p.add_argument("--data-root", type=Path, default=None, help="default: $PLEASE_HOLD_STILL_DATA")
     p.add_argument("--model", default="vit_base", choices=sorted(MODELS))
     p.add_argument("--hub-repo", default=None, help="local clone of facebookresearch/vjepa2")
     p.add_argument("--checkpoint", type=Path, default=None, help="local .pt instead of download")
