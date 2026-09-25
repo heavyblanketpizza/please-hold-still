@@ -12,7 +12,9 @@ uv sync          # creates .venv/ and installs the exact versions in uv.lock
 uv run pytest    # should print only dots and "passed"
 ```
 
-Data goes to `/Volumes/Just for Fun/mri-jepa-data` by default. To use a different
-folder, set `export MRI_JEPA_DATA=/path/to/folder`.
+Large files (downloads, preprocessed volumes, checkpoints) go under one data
+folder, ideally on an external drive. Point the code at it with
+`export MRI_JEPA_DATA=/path/to/folder` (add that line to `~/.zshrc` so every
+terminal has it).
 
 See `CLAUDE.md` for conventions and the full command list.
