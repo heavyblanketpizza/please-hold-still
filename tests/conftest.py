@@ -25,8 +25,9 @@ def make_phantom(
       check that the orientation is right after preprocessing.
     - Spacing is anisotropic, and with `lps=True` the axes are stored flipped
       (L-P-S instead of R-A-S), like many real scans.
-    - The anatomy mask is the ellipsoid. The deface mask marks a "face" block at
-      the anterior-inferior corner.
+    - The anatomy mask is stored the way OpenMind stores it: 1 on the air, 0 on
+      the ellipsoid. The deface mask marks a "face" block at the
+      anterior-inferior corner (1 = defaced).
 
     Returns the paths of the image, anatomy mask and deface mask.
     """
@@ -51,7 +52,7 @@ def make_phantom(
     out = {}
     for key, arr, dtype in (
         ("image", image, np.float32),
-        ("anat", inside, np.uint8),
+        ("anat", ~inside, np.uint8),
         ("anon", face, np.uint8),
     ):
         path = folder / f"{name}_{key}.nii.gz"

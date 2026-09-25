@@ -85,6 +85,12 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
   MIC-DKFZ/nnssl (`dataset_conversion/Dataset001_OpenMind.py`), and the real
   file (checked 2026-09-26). Scans from one session can share a mask file, so
   200 volumes need fewer than 600 files (563 in our subset).
+- **The raw anatomy mask (`fb_mask`) is stored the other way round: 1 =
+  background, 0 = head.** nnssl's loader takes the foreground as `1 - anat`,
+  and on our 200 real scans the head was ~40× brighter outside the stored mask.
+  `preprocess.load_anatomy_mask()` flips it on load, and `preprocess_volume`
+  raises "wrong way round" if the mask ever covers the darker part of an image.
+  The raw deface mask is the usual way: 1 = defaced (nnssl uses `1 - anon`).
 - `image_quality_score`: lower is better. The authors filter at 1.5–3.5.
 - The download step writes `<root>/raw/subset_manifest.csv` (id, dataset_id,
   modality, image, anat_mask, anon_mask, image_quality_score). Paths in it are
@@ -178,9 +184,11 @@ Next, on the Mac, in order:
    --dry-run` and the download itself. The real CSV has the expected columns,
    and 200 volumes (67 T1w, 67 T2w, 66 FLAIR from 122 studies, 2.39 GB) are on
    the data drive with a complete `subset_manifest.csv`. The Hugging Face
-   download worked without logging in. Still to do: `preprocess.py --limit 5`,
-   `preprocess.py`, `visualize_clip.py --random 4` (look at the PNGs), and
-   `smoke_test_encoder.py`. Fix whatever real files break.
+   download worked without logging in. `preprocess.py --workers 8` then ran
+   on all 200 in 30 s (PREPROCESS_VERSION 2, after the anatomy-mask flip
+   fix), and `visualize_clip.py` PNGs look right. A few scans cover only a
+   slab of the head (smallest crop 55 mm front to back). Still to do:
+   `smoke_test_encoder.py`.
 2. **Baseline:** `evaluate_encoder.py --tag baseline` (original weights). Note
    the scan-type probe may already be near 100%; the position-in-head, age
    and sex probes are the informative ones.

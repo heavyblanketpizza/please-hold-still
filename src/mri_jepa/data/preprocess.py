@@ -3,6 +3,8 @@
 For each volume:
 
 1. Load image, anatomy mask and (optional) deface mask with nibabel.
+   OpenMind stores the anatomy mask the other way round (1 = background), so
+   it is flipped on load. Everything we write uses 1 = anatomy.
 2. Reorient the image to RAS with MONAI, so array axes mean the same thing for
    every scan: x = left→right, y = posterior→anterior, z = inferior→superior.
 3. Resample the image to 1 mm isotropic (trilinear). Put the masks onto exactly
@@ -42,7 +44,9 @@ with warnings.catch_warnings():  # MONAI's import triggers a torch.jit deprecati
     from monai.data import MetaTensor
     from monai.transforms import Orientation, ResampleToMatch, Spacing
 
-PREPROCESS_VERSION = 1
+# Bump when the output changes, so re-running redoes older volumes.
+# 2: OpenMind anatomy masks are flipped on load (they mark the background).
+PREPROCESS_VERSION = 2
 AXES = "ZYX"
 
 
@@ -71,6 +75,17 @@ def load_volume(path: str | Path) -> MetaTensor:
         raise ValueError(f"NaN or inf values in {path}")
     affine = torch.as_tensor(nii.affine, dtype=torch.float64)
     return MetaTensor(torch.from_numpy(np.ascontiguousarray(data))[None], affine=affine)
+
+
+def load_anatomy_mask(path: str | Path) -> MetaTensor:
+    """Load an OpenMind anatomy mask ("fb_mask") and flip it, so that 1 = anatomy.
+
+    OpenMind stores 1 on the background and 0 on the head. The authors' loader
+    (nnssl, `nnsslAnatDataLoader3D`) takes the foreground as `1 - anat`, and the
+    real files agree: the head is where the stored mask is 0.
+    """
+    mask = load_volume(path)
+    return MetaTensor((mask.as_tensor() < 0.5).float(), affine=mask.affine)
 
 
 def to_ras_isotropic(image: MetaTensor, spacing_mm: float = 1.0) -> MetaTensor:
@@ -144,8 +159,18 @@ def preprocess_volume(
     original_spacing = [round(float(s), 4) for s in raw.pixdim[:3]]
 
     image = to_ras_isotropic(raw, cfg.spacing_mm)
-    anat = mask_on_grid(load_volume(anat_mask_path), image)
+    anat = mask_on_grid(load_anatomy_mask(anat_mask_path), image)
     anon = mask_on_grid(load_volume(anon_mask_path), image) if anon_mask_path else None
+
+    # A mask the wrong way round would crop to the air and erase the head.
+    # In MRI the head is brighter than the air around it, so check that.
+    full = image[0].numpy()
+    if (~anat).any() and not full[anat].mean() > full[~anat].mean():
+        raise ValueError(
+            "anatomy mask covers the darker part of the image (mean "
+            f"{full[anat].mean():.3g} inside vs {full[~anat].mean():.3g} outside): "
+            "is it the wrong way round?"
+        )
 
     box = bounding_box(anat, cfg.margin)
     img = image[0].numpy()[box]
@@ -211,13 +236,21 @@ def output_paths(out_dir: Path, dataset_id: str, vid: str) -> dict[str, Path]:
     }
 
 
+def _is_done(json_path: Path) -> bool:
+    """True if the sidecar exists and was written by the current PREPROCESS_VERSION."""
+    try:
+        return json.loads(json_path.read_text()).get("preprocess_version") == PREPROCESS_VERSION
+    except (OSError, ValueError):
+        return False
+
+
 def process_row(
     row: dict, raw_dir: Path, out_dir: Path, cfg: PreprocessConfig, overwrite: bool = False
 ) -> tuple[str, str, str]:
     """Preprocess one manifest row. Returns (id, "ok" | "skipped" | "failed", message)."""
     vid = row["id"]
     out = output_paths(out_dir, row["dataset_id"], vid)
-    if out["json"].exists() and not overwrite:
+    if not overwrite and _is_done(out["json"]):
         return vid, "skipped", ""
     try:
         anon = row.get("anon_mask")

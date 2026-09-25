@@ -27,10 +27,10 @@ def test_to_ras_isotropic_gives_1mm_ras(phantom):
 
 def test_mask_lands_on_the_image_grid(phantom):
     image = pp.to_ras_isotropic(pp.load_volume(phantom["image"]))
-    mask = pp.mask_on_grid(pp.load_volume(phantom["anat"]), image)
+    mask = pp.mask_on_grid(pp.load_anatomy_mask(phantom["anat"]), image)
     assert mask.shape == tuple(image.shape[1:]) and mask.dtype == bool
-    # The phantom's tissue is bright (>~250) and the air is ~0, so the mask
-    # should sit on the bright voxels.
+    # The phantom's tissue is bright (>~250) and the air is ~0, so the flipped
+    # mask should sit on the bright voxels.
     img = image[0].numpy()
     assert img[mask].mean() > 400 and abs(img[~mask].mean()) < 60
 
@@ -119,6 +119,11 @@ def test_process_row_writes_files_and_resumes(raw_manifest, tmp_path):
     assert pp.process_row(row, raw, out, pp.PreprocessConfig())[1] == "skipped"
     assert pp.process_row(row, raw, out, pp.PreprocessConfig(), overwrite=True)[1] == "ok"
 
+    # Written by an older preprocessing version: redone without --overwrite.
+    paths["json"].write_text(json.dumps(info | {"preprocess_version": 1}))
+    assert pp.process_row(row, raw, out, pp.PreprocessConfig())[1] == "ok"
+    assert json.loads(paths["json"].read_text())["preprocess_version"] == pp.PREPROCESS_VERSION
+
 
 def test_row_without_deface_mask(raw_manifest, tmp_path):
     raw, manifest = raw_manifest
@@ -128,6 +133,15 @@ def test_row_without_deface_mask(raw_manifest, tmp_path):
     assert status == "ok", msg
     info = json.loads(pp.output_paths(tmp_path, row["dataset_id"], vid)["json"].read_text())
     assert info["files"]["anon"] is None
+
+
+def test_mask_the_wrong_way_round_is_rejected(tmp_path, phantom):
+    """A mask stored as 1 = anatomy (not OpenMind's 1 = background) must fail loudly."""
+    nii = nib.load(phantom["anat"])
+    path = tmp_path / "flipped_anat.nii.gz"
+    nib.save(nib.Nifti1Image(1 - np.asanyarray(nii.dataobj), nii.affine), path)
+    with pytest.raises(ValueError, match="wrong way round"):
+        pp.preprocess_volume(phantom["image"], path)
 
 
 def test_bad_row_fails_without_crashing(raw_manifest, tmp_path):
@@ -211,9 +225,9 @@ def test_mask_on_a_different_grid_is_aligned(tmp_path):
     def iou(a, b):
         return (a & b).sum() / (a | b).sum()
 
-    for key, min_iou in (("anat", 0.9), ("anon", 0.8)):
-        a = pp.mask_on_grid(pp.load_volume(f[key]), image)
-        b = pp.mask_on_grid(pp.load_volume(g[key]), image)
+    for key, load, min_iou in (("anat", pp.load_anatomy_mask, 0.9), ("anon", pp.load_volume, 0.8)):
+        a = pp.mask_on_grid(load(f[key]), image)
+        b = pp.mask_on_grid(load(g[key]), image)
         assert a.any() and b.any()
         assert iou(a, b) > min_iou, key  # only boundary voxels may differ
 
