@@ -14,6 +14,7 @@ each step small, and commit after each step with the tests passing.
 src/mri_jepa/     importable package (src layout; there is NO src/__init__.py)
   paths.py        data-root helpers (SSD location, caches)
   data/openmind.py  OpenMind CSV parsing, subset selection, HF download
+  data/preprocess.py  NIfTI -> RAS, 1 mm, cropped, normalised .npy + JSON
 scripts/          command-line entry points (thin wrappers around the package)
 tests/            pytest; synthetic data only, never needs the SSD or network
 ```
@@ -35,6 +36,8 @@ Pipeline (run on the Mac, in order):
 uv run python scripts/download_openmind.py --inspect      # CSV only (a few MB) + summary
 uv run python scripts/download_openmind.py --n 200 --dry-run   # show sizes, download nothing
 uv run python scripts/download_openmind.py --n 200        # ~200 T1w/T2w/FLAIR + masks
+uv run python scripts/preprocess.py --limit 5             # time a few volumes first
+uv run python scripts/preprocess.py --workers 8           # all volumes in the manifest
 ```
 
 ## Conventions
@@ -59,6 +62,19 @@ uv run python scripts/download_openmind.py --n 200        # ~200 T1w/T2w/FLAIR +
 - The download step writes `<root>/raw/subset_manifest.csv` (id, dataset_id,
   modality, image, anat_mask, anon_mask, image_quality_score). Paths in it are
   relative to `<root>/raw`. Later steps read this manifest, not the big CSV.
+
+## Preprocessed data format (`<root>/processed/<dataset_id>/`)
+
+- `<id>_image.npy`: float16, shape (Z, Y, X), RAS orientation (z = inferior→
+  superior, y = posterior→anterior, x = left→right), 1 mm isotropic, cropped to
+  the anatomy-mask bounding box. Clipped at the 1st/99th percentile (measured
+  inside the anatomy mask) and scaled to [-1, 1]. Outside the mask it is -1.
+- `<id>_anat.npy` / `<id>_anon.npy`: uint8 0/1 anatomy / deface mask, same shape.
+  The anon file is missing when the source has no deface mask.
+- `<id>.json`: sidecar (shape, spacing, modality, source dataset, crop box,
+  affine, clip values). It is written last, so it doubles as the "done" marker.
+- Axial slice k is `image[k]`. Load with `np.load(path, mmap_mode="r")` to read
+  a few slices without pulling the whole volume into memory.
 
 ## Hardware and storage
 
