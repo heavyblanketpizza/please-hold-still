@@ -176,7 +176,8 @@ split by study), V-JEPA loader and smoke test,
 visualisation, foreground masking, the JEPA training step (`jepa.py`), the
 training script (`train_jepa.py`), and the probe evaluation + comparison
 (`evaluate_encoder.py`, `compare_models.py`). The full loop (evaluate → train →
-evaluate → compare) has been run end to end on fake volumes.
+evaluate → compare) has been run end to end on fake volumes, and on the
+200 real volumes (run1, below).
 
 Next, on the Mac, in order:
 
@@ -206,9 +207,14 @@ Next, on the Mac, in order:
    Clip features changed ~4% (cosine 0.999), so the checkpoint does load.
    In run1 (1000 steps, the first 200 predictor-only) the teacher moves ~45%
    (0.99925^800 ≈ 0.55).
-4. **Real run:** `train_jepa.py --run-name run1 --steps 1000` (read the ETA it
-   prints; Ctrl-C saves; re-running resumes). Then `evaluate_encoder.py --tag
-   run1 --checkpoint .../encoder_last.pt` and `compare_models.py baseline run1`.
+4. **Real run:** done (2026-09-26), `<root>/runs/run1/` (all 200 volumes,
+   batch 8, fp32, 46 min, 1.7–2.8 s per step). Loss fell 0.76 → ~0.45 and
+   was flat from about step 650. Probes (`<root>/eval/run1/`) vs baseline:
+   scan type 0.97 (was 0.91), sex 0.79 (same), age MAE 8.5 years (was 9.8,
+   R² 0.34 vs 0.24), slice height 0.059 (was 0.062). All four point the
+   right way or stay level, but every 95% range overlaps the baseline's, so
+   none is proven yet. Chart: `<root>/eval/compare__baseline__overfit__run1.png`.
+   The four `encoder_stepN.pt` snapshots are still on disk.
 5. With ~40 test volumes the 95% ranges are wide. A convincing comparison
    probably needs more data (e.g. `--n 2000`). Check the size with the owner first.
 6. Later: Meta's 4-layer "deep supervision" targets; bf16 for speed; the
