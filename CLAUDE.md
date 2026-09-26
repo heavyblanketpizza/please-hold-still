@@ -165,7 +165,10 @@ VJEPA2_REPO=/path/to/vjepa2 uv run pytest tests/test_vjepa.py   # otherwise thos
   while it is replaced) plus about 0.35 GB per `encoder_stepN.pt`. So about
   5 GB for 1000 steps with `--save-every 250`. The script checks free space
   before starting.
-- eval features: a few MB per evaluated model
+- eval: per model `features.npy` (~50 MB at 1992 volumes), `clips.csv`,
+  `results.json` and `predictions.csv` (every test answer, for the paired
+  comparison in `compare_models.py`; re-running `evaluate_encoder.py` on an
+  existing tag reuses the features and takes seconds)
 - Training tests (`VJEPA2_REPO` set) write GBs to pytest's temp folder. pytest
   keeps them only for failed tests (`tmp_path_retention_policy`).
 
@@ -177,8 +180,8 @@ split by study), V-JEPA loader and smoke test,
 visualisation, foreground masking, the JEPA training step (`jepa.py`), the
 training script (`train_jepa.py`), and the probe evaluation + comparison
 (`evaluate_encoder.py`, `compare_models.py`). The full loop (evaluate → train →
-evaluate → compare) has been run end to end on fake volumes, and on the
-200 real volumes (run1, below).
+evaluate → compare) has been run end to end on fake volumes, on the 200
+real volumes (run1) and on 1992 (run2, below).
 
 Next, on the Mac, in order:
 
@@ -216,36 +219,36 @@ Next, on the Mac, in order:
    right way or stay level, but every 95% range overlaps the baseline's, so
    none is proven yet. Chart: `<root>/eval/compare__baseline__overfit__run1.png`.
    The four `encoder_stepN.pt` snapshots are still on disk.
-5. **Run 2, more data** (owner chose 2000 volumes, 2026-09-26). With 33 test
-   volumes the 95% ranges are too wide to prove run1's gains. Plan:
-   `download_openmind.py --n 2000 --dry-run` (a superset of the current 200;
-   expect ~24 GB raw; show the owner the exact size and free space), then the
-   download with `--max-gb` just above that number, then `preprocess.py
-   --workers 8`. Re-score baseline and run1 on the bigger set under new tags
-   (`baseline_n2000`, `run1_n2000`); the old 200-volume results stay as they
-   are. `evaluate_encoder.py` refuses to reuse features from a different set of
-   volumes, and `compare_models.py` refuses to compare results scored on
-   different volumes. Then train `run2 --steps 2000` (~1.5 h), evaluate it and
-   run `compare_models.py baseline_n2000 run1_n2000 run2`.
-   Progress: download done (2026-09-26): 2000 volumes (667 T1w, 667 T2w, 666
-   FLAIR) from 694 studies, 22.96 GB in 5728 files, ~30 min; the last few
-   hundred small mask files are the slow part. Preprocessing took 3.2 min:
-   1992 volumes ok, 8 failed and are left out (listed in
-   `<root>/processed/_failures.csv`). Three images contain NaN/inf. Five images
-   are damaged on Hugging Face itself (gzip ends early; local size = remote
-   size), so re-downloading does not help.
-   `baseline_n2000` done (47 min for 15932 clips, ~2 s per volume): 348 test
-   volumes. Scan type 0.991 (0.981–1.000); sex 0.852 (0.804–0.896); age MAE
-   7.28 years (6.53–8.13, chance 11.3); slice height 0.047 (0.046–0.050).
-   Higher than the 200-volume baseline only because the probes get ~10× more
-   training examples; compare tags only within the same volume set.
-   `run1_n2000` done: scan type 0.992, sex 0.885, age MAE 7.48 (worse by
-   0.2, within noise: run1's age gain on 33 volumes was most likely luck),
-   slice height 0.044 (0.042–0.046; ranges just touch). All "within noise"
-   by the range-overlap rule, which is conservative for two models scored
-   on the same volumes; a paired bootstrap of the difference would be fairer.
-   run2 crashed at step ~745 (masker: a clip with one anatomy token got no
-   targets; fixed and tested) and resumed from step 742.
+5. **Run 2, more data:** done (2026-09-26). Data: 2000 volumes (667 T1w, 667
+   T2w, 666 FLAIR, 694 studies, 22.96 GB, ~30 min download; the last few
+   hundred small mask files are the slow part), a superset of the first 200.
+   Preprocessing: 3.2 min, 1992 ok, 8 left out (`<root>/processed/_failures.csv`:
+   3 images contain NaN/inf, 5 are damaged on Hugging Face itself, so
+   re-downloading does not help). Test set: 348 volumes (age labelled for 195,
+   sex for 244). Evaluating one model takes ~47 min (15932 clips).
+   Tags on this set: `baseline_n2000`, `run1_n2000` (run1's encoder
+   re-scored), `run2`. The old 200-volume tags stay as they were. Scores
+   are only comparable within one volume set (more probe training data
+   raises every score).
+   run2 = run1's settings, 2000 steps on the ~1644 train volumes (fp32,
+   ~2.2–3.3 s/step). It crashed at step ~745 (masker: a clip with a single
+   anatomy token got no targets; fixed and tested) and resumed from step 742.
+   Loss tracked run1 for 1000 steps, then flattened at ~0.445.
+   Results vs `baseline_n2000`, paired 95% range of the difference
+   (`compare_models.py baseline_n2000 run1_n2000 run2`):
+   | task | baseline | run1 | run2 |
+   |---|---|---|---|
+   | scan type (bal. acc.) | 0.991 | +0.001 [−0.007, +0.010] | −0.002 [−0.011, +0.009] |
+   | sex (bal. acc.) | 0.852 | **+0.033 [+0.002, +0.070]** | +0.025 [−0.017, +0.068] |
+   | age (MAE, years) | 7.28 | +0.20 [−0.26, +0.64] | −0.01 [−0.68, +0.64] |
+   | slice height (MAE) | 0.047 | **−0.003 [−0.004, −0.002]** | **−0.005 [−0.007, −0.004]** |
+   run2 vs run1: slice height −0.002 [−0.003, −0.001], the rest within noise.
+   Reading: continued pretraining clearly sharpens where-in-the-head (run2
+   ~11% lower error than the original); more data and steps helped that
+   further. No clear gain on age or sex; scan type is at ceiling. The ranges
+   cover test-set luck only, not training luck (one run per setting), and
+   four tasks are tested at once, so a bound as close to 0 as sex's +0.002
+   is weak evidence.
    **Known data issue (not yet fixed):** 11–24 anatomy masks have small stray
    blobs 15–43 slices from the head, so the crop box keeps a nearly empty gap
    (e.g. `ds004215 sub-ON77753` FLAIR: 3 blob slices, 42 empty, then the head).
