@@ -227,6 +227,13 @@ Next, on the Mac, in order:
    volumes, and `compare_models.py` refuses to compare results scored on
    different volumes. Then train `run2 --steps 2000` (~1.5 h), evaluate it and
    run `compare_models.py baseline_n2000 run1_n2000 run2`.
+   Progress: download done (2026-09-26): 2000 volumes (667 T1w, 667 T2w, 666
+   FLAIR) from 694 studies, 22.96 GB in 5728 files, ~30 min; the last few
+   hundred small mask files are the slow part. Preprocessing took 3.2 min:
+   1992 volumes ok, 8 failed and are left out (listed in
+   `<root>/processed/_failures.csv`). Three images contain NaN/inf. Five images
+   are damaged on Hugging Face itself (gzip ends early; local size = remote
+   size), so re-downloading does not help.
 6. Later: Meta's 4-layer "deep supervision" targets; bf16 for speed; the
    whole-volume representation for the LLM stage (longer clips, slice stride,
    or pooling several clips).
