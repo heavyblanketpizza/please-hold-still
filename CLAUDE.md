@@ -18,6 +18,7 @@ src/please_hold_still/  importable package (src layout; there is NO src/__init__
   data/dataset.py   MRISliceClipDataset: (T,3,256,256) clips + (T,256,256) masks
   models/vjepa.py   load_vjepa2_1_encoder(): V-JEPA 2.1 via torch.hub + manual checkpoint
   viz.py            plot_clip_grid(): 4x4 slice grid with mask overlay -> PNG
+                    plot_paired_changes(): change-from-baseline chart (README)
   notify.py         macOS notification + sound when long scripts finish
   masking.py        ForegroundBlockMasker: V-JEPA 2.1 multi-block masks on anatomy only
   jepa.py           JEPA: student + EMA teacher + predictor; one training step's loss
@@ -57,6 +58,8 @@ uv run python scripts/train_jepa.py --run-name overfit --steps 200 --max-volumes
 caffeinate -i uv run python scripts/train_jepa.py --run-name run1 --steps 1000
 uv run python scripts/evaluate_encoder.py --tag run1 --checkpoint "$PLEASE_HOLD_STILL_DATA/runs/run1/encoder_last.pt"
 uv run python scripts/compare_models.py baseline run1     # before/after table + chart
+uv run python scripts/compare_models.py baseline_n2000 run1_n2000 run2 \
+    --names Baseline,run1,run2 --out docs/run2_vs_baseline.png   # the README chart
 ```
 
 Offline checks (no data, no weights; needs a local vjepa2 clone):

@@ -13,7 +13,7 @@ from torch import nn
 
 from please_hold_still import probe
 from please_hold_still.data import preprocess as pp
-from please_hold_still.viz import plot_probe_comparison
+from please_hold_still.viz import plot_paired_changes, plot_probe_comparison
 
 
 def test_clip_starts():
@@ -103,6 +103,17 @@ def test_comparison_table_and_chart(tmp_path):
 
     out = plot_probe_comparison({"baseline": weak, "trained": strong}, tmp_path / "cmp.png")
     assert mpimg.imread(out).shape[1] > 800
+
+
+def test_paired_change_chart(tmp_path):
+    weak, weak_preds = probe.run_probes(*synthetic(signal=0.2), return_predictions=True)
+    strong, strong_preds = probe.run_probes(*synthetic(signal=1.5), return_predictions=True)
+    results = {"baseline": weak, "trained": strong}
+    paired = {"trained": probe.paired_differences(weak_preds, strong_preds)}
+    out = plot_paired_changes(results, paired, tmp_path / "change.png")
+    assert mpimg.imread(out).shape[1] > 800
+    with pytest.raises(ValueError, match="paired comparison"):
+        plot_paired_changes(results, {}, tmp_path / "none.png")
 
 
 def test_predictions_reproduce_the_scores_after_a_csv_round_trip(tmp_path):

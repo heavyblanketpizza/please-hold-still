@@ -6,6 +6,8 @@ Prints a table and saves a chart to <data root>/eval/compare__baseline__run1.png
 Each tag must have been evaluated first with scripts/evaluate_encoder.py.
 Every model after the first is compared with the first, answer by answer on
 the same test scans (a paired comparison), using each tag's predictions.csv.
+The chart then shows each change with its paired range. Tags without a
+predictions.csv get a plain chart of each model's own score instead.
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ from please_hold_still.probe import (
     mismatched_volumes_message,
     paired_differences,
 )
-from please_hold_still.viz import plot_probe_comparison
+from please_hold_still.viz import plot_paired_changes, plot_probe_comparison
 
 
 def main() -> int:
@@ -31,7 +33,15 @@ def main() -> int:
     p.add_argument("tags", nargs="+", help="evaluated models, first = reference (e.g. baseline)")
     p.add_argument("--data-root", type=Path, default=None, help="default: $PLEASE_HOLD_STILL_DATA")
     p.add_argument("--out", type=Path, default=None, help="chart path (.png)")
+    p.add_argument(
+        "--names",
+        default=None,
+        help='display names for the table and chart, in tag order (e.g. "Baseline,run1,run2")',
+    )
     args = p.parse_args()
+    names = args.names.split(",") if args.names else args.tags
+    if len(names) != len(args.tags):
+        p.error(f"--names has {len(names)} names for {len(args.tags)} tags")
 
     root = paths.ensure_data_root(args.data_root)
     summaries = {}
@@ -46,7 +56,7 @@ def main() -> int:
         print(mismatch)
         print("Evaluate every model on the same data first (scripts/evaluate_encoder.py).")
         return 1
-    results = {tag: s["probes"] for tag, s in summaries.items()}
+    results = {name: summaries[tag]["probes"] for tag, name in zip(args.tags, names, strict=True)}
 
     # Paired comparison against the first model, where both have saved predictions.
     first, *others = args.tags
@@ -55,9 +65,9 @@ def main() -> int:
     paired = {}
     if first not in missing:
         reference = pd.read_csv(pred_paths[first])
-        for tag in others:
+        for tag, name in zip(others, names[1:], strict=True):
             if tag not in missing:
-                paired[tag] = paired_differences(reference, pd.read_csv(pred_paths[tag]))
+                paired[name] = paired_differences(reference, pd.read_csv(pred_paths[tag]))
 
     table = comparison_table(results, paired)
     if table.empty:
@@ -67,7 +77,7 @@ def main() -> int:
     print(table.to_string(index=False))
     if paired:
         print(
-            f"\nchange: difference from {first}; [range] = paired 95% range (both models "
+            f"\nchange: difference from {names[0]}; [range] = paired 95% range (both models "
             "answer the same test scans).\n"
             '"within noise": that range includes 0, so the difference could be luck.'
         )
@@ -81,7 +91,10 @@ def main() -> int:
             "--tag <tag> to save them; it reuses the saved features (about a minute)."
         )
     out = args.out or paths.eval_dir(root) / f"compare__{'__'.join(args.tags)}.png"
-    print(f"chart: {plot_probe_comparison(results, out)}")
+    if len(paired) == len(others):
+        print(f"chart: {plot_paired_changes(results, paired, out)}")
+    else:
+        print(f"chart (each model's own score, not paired): {plot_probe_comparison(results, out)}")
     return 0
 
 

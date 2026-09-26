@@ -33,7 +33,11 @@ about 11% lower than the baseline's, and lower than run1's too (−0.002
 ceiling. run1's gain on sex is marginal and does not hold in run2. The ranges
 cover test-set sampling only; each setting was trained once.
 
-![Probe scores for the baseline, run1 and run2 on 348 held-out scans](docs/run2_vs_baseline.png)
+The chart shows the same changes as a percentage of the baseline's score,
+turned so that right is always better (less error, or higher accuracy). A
+filled dot is a bold entry in the table; a hollow dot could be luck.
+
+![Change from the baseline for run1 and run2 on each task, with paired 95% ranges, on 348 held-out scans](docs/run2_vs_baseline.png)
 
 ### run1 on 200 volumes (superseded)
 
