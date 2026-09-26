@@ -38,6 +38,7 @@ from please_hold_still.probe import (  # noqa: E402
     comparison_table,
     extract_features,
     run_probes,
+    stale_features_message,
 )
 
 
@@ -72,8 +73,13 @@ def main() -> int:
     if features_path.is_file() and clips_path.is_file() and not args.overwrite:
         import pandas as pd
 
-        print(f"reusing features in {out} (pass --overwrite to recompute)")
         features, clips = np.load(features_path), pd.read_csv(clips_path)
+        stale = stale_features_message(clips, paths.processed_dir(root))
+        if stale:
+            print(f"{out}: {stale}.")
+            print("Use a new --tag to keep the old results, or --overwrite to replace them.")
+            return 1
+        print(f"reusing features in {out} (pass --overwrite to recompute)")
     else:
         encoder = load_vjepa2_1_encoder(
             args.model,

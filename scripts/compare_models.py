@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from please_hold_still import paths
-from please_hold_still.probe import comparison_table
+from please_hold_still.probe import comparison_table, mismatched_volumes_message
 from please_hold_still.viz import plot_probe_comparison
 
 
@@ -26,13 +26,19 @@ def main() -> int:
     args = p.parse_args()
 
     root = paths.ensure_data_root(args.data_root)
-    results = {}
+    summaries = {}
     for tag in args.tags:
         path = paths.eval_dir(root) / tag / "results.json"
         if not path.is_file():
             print(f"{path} not found. Run: scripts/evaluate_encoder.py --tag {tag} ...")
             return 1
-        results[tag] = json.loads(path.read_text())["probes"]
+        summaries[tag] = json.loads(path.read_text())
+    mismatch = mismatched_volumes_message(summaries)
+    if mismatch:
+        print(mismatch)
+        print("Evaluate every model on the same data first (scripts/evaluate_encoder.py).")
+        return 1
+    results = {tag: s["probes"] for tag, s in summaries.items()}
 
     table = comparison_table(results)
     if table.empty:

@@ -216,8 +216,17 @@ Next, on the Mac, in order:
    right way or stay level, but every 95% range overlaps the baseline's, so
    none is proven yet. Chart: `<root>/eval/compare__baseline__overfit__run1.png`.
    The four `encoder_stepN.pt` snapshots are still on disk.
-5. With ~40 test volumes the 95% ranges are wide. A convincing comparison
-   probably needs more data (e.g. `--n 2000`). Check the size with the owner first.
+5. **Run 2, more data** (owner chose 2000 volumes, 2026-09-26). With 33 test
+   volumes the 95% ranges are too wide to prove run1's gains. Plan:
+   `download_openmind.py --n 2000 --dry-run` (a superset of the current 200;
+   expect ~24 GB raw; show the owner the exact size and free space), then the
+   download with `--max-gb` just above that number, then `preprocess.py
+   --workers 8`. Re-score baseline and run1 on the bigger set under new tags
+   (`baseline_n2000`, `run1_n2000`); the old 200-volume results stay as they
+   are. `evaluate_encoder.py` refuses to reuse features from a different set of
+   volumes, and `compare_models.py` refuses to compare results scored on
+   different volumes. Then train `run2 --steps 2000` (~1.5 h), evaluate it and
+   run `compare_models.py baseline_n2000 run1_n2000 run2`.
 6. Later: Meta's 4-layer "deep supervision" targets; bf16 for speed; the
    whole-volume representation for the LLM stage (longer clips, slice stride,
    or pooling several clips).

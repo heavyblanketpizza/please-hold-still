@@ -1,5 +1,7 @@
 """Frozen-encoder probes and the before/after comparison."""
 
+import json
+
 import matplotlib.image as mpimg
 import numpy as np
 import pandas as pd
@@ -115,6 +117,32 @@ class PatchMeanEncoder(nn.Module):
         p = F.avg_pool3d(x, (2, 16, 16))  # (B, 3, t, h, w)
         tok = p.flatten(2).transpose(1, 2)  # (B, N, 3)
         return torch.cat([tok, tok**2], dim=-1)
+
+
+def _write_sidecars(folder, ids):
+    folder.mkdir(parents=True, exist_ok=True)
+    for i in ids:
+        sidecar = {"id": i, "source_dataset": folder.name, "modality": "T1w"}
+        (folder / f"{i}.json").write_text(json.dumps(sidecar))
+
+
+def test_stale_features_after_more_data(tmp_path):
+    _write_sidecars(tmp_path / "ds000001", ["a", "b"])
+    clips = pd.DataFrame({"id": ["a", "a", "b", "b"]})  # several clips per volume
+    assert probe.stale_features_message(clips, tmp_path) is None
+
+    _write_sidecars(tmp_path / "ds000002", ["c"])  # a bigger download added a volume
+    msg = probe.stale_features_message(clips, tmp_path)
+    assert "cover 2 volumes" in msg and "3 are preprocessed" in msg and "1 new" in msg
+
+
+def test_mismatched_volumes():
+    small = {"n_volumes": 200, "n_test_volumes": 33}
+    assert probe.mismatched_volumes_message({"baseline": small, "run1": small}) is None
+
+    big = {"n_volumes": 2000, "n_test_volumes": 400}
+    msg = probe.mismatched_volumes_message({"baseline": small, "run2": big})
+    assert "baseline: 200 volumes" in msg and "run2: 2000 volumes" in msg
 
 
 def test_extract_features_end_to_end(tmp_path):

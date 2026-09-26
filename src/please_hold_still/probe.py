@@ -33,7 +33,7 @@ from sklearn.metrics import balanced_accuracy_score, mean_absolute_error, r2_sco
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from please_hold_still.data.dataset import MRISliceClipDataset
+from please_hold_still.data.dataset import MRISliceClipDataset, find_volumes
 from please_hold_still.masking import token_foreground
 
 MIN_TRAIN, MIN_TEST = 10, 4
@@ -277,3 +277,31 @@ def comparison_table(results: dict[str, dict]) -> pd.DataFrame:
             row["change"] = f"{delta:+.3f} ({verdict}{', within noise' if overlap else ''})"
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+def stale_features_message(clips: pd.DataFrame, processed_dir) -> str | None:
+    """None if saved features cover exactly the volumes preprocessed now, else what changed.
+
+    After a bigger download, old features would silently score a model on the
+    old, smaller set of volumes.
+    """
+    saved = set(clips["id"])
+    current = {v["id"] for v in find_volumes(processed_dir)}
+    if saved == current:
+        return None
+    return (
+        f"these features cover {len(saved)} volumes, but {len(current)} are preprocessed "
+        f"now ({len(current - saved)} new, {len(saved - current)} gone)"
+    )
+
+
+def mismatched_volumes_message(summaries: dict[str, dict]) -> str | None:
+    """None if every results.json was scored on the same number of volumes, else a listing.
+
+    Scores from different test sets cannot be compared fairly.
+    """
+    counts = {tag: (s["n_volumes"], s["n_test_volumes"]) for tag, s in summaries.items()}
+    if len(set(counts.values())) <= 1:
+        return None
+    lines = [f"  {tag}: {n} volumes, {t} of them for testing" for tag, (n, t) in counts.items()]
+    return "these models were scored on different volumes:\n" + "\n".join(lines)
