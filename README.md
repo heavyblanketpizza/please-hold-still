@@ -6,23 +6,49 @@ frames.
 
 ![please hold still. 3D brain MRI as video: an MRI scanner room with its control room.](docs/banner.png)
 
-## Results: run1
+## Results
 
-1000 steps on 200 volumes (ViT-B, batch 8, 46 min on Apple silicon). Loss
-0.76 → 0.45. Linear probes on the frozen encoder, 33 held-out scans:
+### run2: 2000 steps on 1992 volumes
 
-| Task | Chance | Baseline | run1 |
-|---|---|---|---|
-| Scan type, balanced acc. ↑ | 0.33 | 0.91 | 0.97 |
-| Sex, balanced acc. ↑ | 0.50 | 0.79 | 0.79 |
-| Age, MAE years ↓ | 11.4 | 9.8 | 8.5 |
-| Slice height, MAE ↓ | 0.26 | 0.062 | 0.059 |
+2000 steps on the 1644 training volumes (ViT-B, batch 8, fp32, about 1.8 h on
+Apple silicon). Linear probes on the frozen encoder, scored on 348 held-out
+scans from studies never used in training.
 
-Baseline is the original V-JEPA 2.1 ViT-B. Three scores improve and one holds,
-but every 95% range overlaps the baseline's, so none of the gains is
-significant yet.
+Baseline is the original V-JEPA 2.1 ViT-B. run1 is the encoder from the
+earlier 200-volume run (below), re-scored on this set. The run1 and run2
+columns show the change from the baseline, with a paired 95% bootstrap range
+in brackets: both models answer the same test scans, and whole volumes are
+resampled. **Bold** means the range excludes 0.
 
-![Probe scores, baseline vs run1](docs/run1_vs_baseline.png)
+| Task | Chance | Baseline | run1 | run2 |
+|---|---|---|---|---|
+| Slice height, MAE ↓ | 0.26 | 0.047 | **−0.003** [−0.004, −0.002] | **−0.005** [−0.007, −0.004] |
+| Sex, balanced acc. ↑ | 0.50 | 0.852 | **+0.033** [+0.002, +0.070] | +0.025 [−0.017, +0.068] |
+| Age, MAE years ↓ | 11.3 | 7.28 | +0.20 [−0.26, +0.64] | −0.01 [−0.68, +0.64] |
+| Scan type, balanced acc. ↑ | 0.33 | 0.991 | +0.001 [−0.007, +0.010] | −0.002 [−0.011, +0.009] |
+
+Continued pretraining clearly improves where-in-the-head: run2's error is
+about 11% lower than the baseline's, and lower than run1's too (−0.002
+[−0.003, −0.001]). Age shows no clear change, and scan type is already at
+ceiling. run1's gain on sex is marginal and does not hold in run2. The ranges
+cover test-set sampling only; each setting was trained once.
+
+![Probe scores for the baseline, run1 and run2 on 348 held-out scans](docs/run2_vs_baseline.png)
+
+### run1 on 200 volumes (superseded)
+
+1000 steps on 200 volumes, 46 min, scored on 33 held-out scans: scan type
+0.91 → 0.97, sex 0.79 → 0.79, age MAE 9.8 → 8.5 years, slice height 0.062 →
+0.059. Every 95% range overlapped the baseline's. On the 348-scan test set
+above, only the slice-height gain holds clearly, and the age gain turned out
+to be test-set luck.
+
+<details>
+<summary>run1 chart (33 test scans)</summary>
+
+![Probe scores, baseline vs run1 on 33 held-out scans](docs/run1_vs_baseline.png)
+
+</details>
 
 ## Setup (Mac)
 
