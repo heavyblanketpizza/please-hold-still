@@ -239,6 +239,19 @@ Next, on the Mac, in order:
    7.28 years (6.53–8.13, chance 11.3); slice height 0.047 (0.046–0.050).
    Higher than the 200-volume baseline only because the probes get ~10× more
    training examples; compare tags only within the same volume set.
+   `run1_n2000` done: scan type 0.992, sex 0.885, age MAE 7.48 (worse by
+   0.2, within noise: run1's age gain on 33 volumes was most likely luck),
+   slice height 0.044 (0.042–0.046; ranges just touch). All "within noise"
+   by the range-overlap rule, which is conservative for two models scored
+   on the same volumes; a paired bootstrap of the difference would be fairer.
+   run2 crashed at step ~745 (masker: a clip with one anatomy token got no
+   targets; fixed and tested) and resumed from step 742.
+   **Known data issue (not yet fixed):** 11–24 anatomy masks have small stray
+   blobs 15–43 slices from the head, so the crop box keeps a nearly empty gap
+   (e.g. `ds004215 sub-ON77753` FLAIR: 3 blob slices, 42 empty, then the head).
+   Clips in the gap are near-empty. Fix in preprocessing (keep the largest
+   connected component before cropping), but only together with re-scoring
+   every model, since it changes the clips.
 6. Later: Meta's 4-layer "deep supervision" targets; bf16 for speed; the
    whole-volume representation for the LLM stage (longer clips, slice stride,
    or pooling several clips).
