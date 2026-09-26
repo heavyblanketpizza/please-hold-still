@@ -15,6 +15,8 @@
                    (0 = bottom of the head, 1 = top)
    Each score comes with a chance-level reference and a bootstrap 95% range
    (resampling test volumes), so small differences can be told from noise.
+4. `paired_differences`: compare two models answer by answer on the same
+   test volumes, with a 95% range for the difference itself.
 
 Run it on the original encoder ("before") and on a trained one ("after"),
 with the same data and split, then compare.
@@ -139,8 +141,12 @@ def attach_metadata_labels(clips: pd.DataFrame, metadata_csv) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def _bootstrap_ci(metric, y_true, y_pred, groups, n=1000, seed=0) -> list[float]:
-    """95% range of `metric` when test volumes are resampled with replacement."""
+def _resampled_range(groups, stat, n=1000, seed=0) -> list[float]:
+    """95% range of `stat(rows)` when test volumes are resampled with replacement.
+
+    `stat` gets the row indices of one resample. All clips of a volume stay
+    together, because clips from one scan are not independent.
+    """
     rng = np.random.default_rng(seed)
     uniq = np.unique(groups)
     index = {g: np.flatnonzero(groups == g) for g in uniq}
@@ -150,11 +156,16 @@ def _bootstrap_ci(metric, y_true, y_pred, groups, n=1000, seed=0) -> list[float]
         for _ in range(n):
             pick = np.concatenate([index[g] for g in rng.choice(uniq, len(uniq))])
             try:
-                values.append(metric(y_true[pick], y_pred[pick]))
+                values.append(stat(pick))
             except ValueError:
                 continue
     lo, hi = np.percentile(values, [2.5, 97.5]) if values else (np.nan, np.nan)
     return [float(lo), float(hi)]
+
+
+def _bootstrap_ci(metric, y_true, y_pred, groups, n=1000, seed=0) -> list[float]:
+    """95% range of `metric` when test volumes are resampled with replacement."""
+    return _resampled_range(groups, lambda pick: metric(y_true[pick], y_pred[pick]), n, seed)
 
 
 def _classifier(y_train: np.ndarray):
@@ -177,13 +188,17 @@ def _regressor():
     return make_pipeline(StandardScaler(), RidgeCV(alphas=np.logspace(-2, 5, 15)))
 
 
-def _probe(kind, x_tr, y_tr, x_te, y_te, groups_te) -> dict:
+METRICS = {"classification": balanced_accuracy_score, "regression": mean_absolute_error}
+
+
+def _probe(kind, x_tr, y_tr, x_te, y_te, groups_te) -> tuple[dict, np.ndarray | None]:
+    """(result, test predictions); predictions are None when the task is skipped."""
     if len(y_tr) < MIN_TRAIN or len(y_te) < MIN_TEST:
-        return {"skipped": f"too few labelled samples (train {len(y_tr)}, test {len(y_te)})"}
+        return {"skipped": f"too few labelled samples (train {len(y_tr)}, test {len(y_te)})"}, None
     if kind == "classification":
         classes = np.unique(y_tr)
         if len(classes) < 2 or len(np.unique(y_te)) < 2:
-            return {"skipped": "needs at least two classes in train and in test"}
+            return {"skipped": "needs at least two classes in train and in test"}, None
         pred = _classifier(y_tr).fit(x_tr, y_tr).predict(x_te)
         return {
             "metric": "balanced_accuracy",
@@ -193,7 +208,7 @@ def _probe(kind, x_tr, y_tr, x_te, y_te, groups_te) -> dict:
             "chance": 1.0 / len(classes),
             "n_train": int(len(y_tr)),
             "n_test": int(len(y_te)),
-        }
+        }, pred
     pred = _regressor().fit(x_tr, y_tr).predict(x_te)
     baseline = np.full_like(y_te, y_tr.mean(), dtype=float)
     return {
@@ -205,7 +220,7 @@ def _probe(kind, x_tr, y_tr, x_te, y_te, groups_te) -> dict:
         "r2": float(r2_score(y_te, pred)),
         "n_train": int(len(y_tr)),
         "n_test": int(len(y_te)),
-    }
+    }, pred
 
 
 TASKS = {
@@ -217,16 +232,23 @@ TASKS = {
 }
 
 
-def run_probes(features: np.ndarray, clips: pd.DataFrame) -> dict[str, dict]:
-    """Fit each probe on the train studies, score it on the test studies."""
-    clips = clips.reset_index(drop=True)
+def run_probes(features: np.ndarray, clips: pd.DataFrame, return_predictions: bool = False):
+    """Fit each probe on the train studies, score it on the test studies.
+
+    Returns {task: result}. With `return_predictions=True`, returns
+    (results, predictions): one row per test item with columns task, id,
+    clip (the clip's number within its volume; 0 for per-volume tasks),
+    y_true and y_pred. `paired_differences` compares two models with it.
+    """
+    clips = clips.reset_index(drop=True).assign(clip=lambda d: d.groupby("id").cumcount())
     # Volume-level features: the average of that volume's clip features.
     vol_ids = clips["id"].to_numpy()
     uniq = list(dict.fromkeys(vol_ids))
     vol_feats = np.stack([features[vol_ids == v].mean(0) for v in uniq])
     volumes = clips.drop_duplicates("id").set_index("id").loc[uniq].reset_index()
+    volumes["clip"] = 0
 
-    results = {}
+    results, predictions = {}, []
     for task, (column, level, kind) in TASKS.items():
         table, x = (volumes, vol_feats) if level == "volume" else (clips, features)
         if column not in table:
@@ -238,10 +260,66 @@ def run_probes(features: np.ndarray, clips: pd.DataFrame) -> dict[str, dict]:
         y = table[column].to_numpy()
         if kind == "regression":
             y = y.astype(float)
-        results[task] = _probe(
-            kind, x[train], y[train], x[test], y[test], table["id"].to_numpy()[test]
-        )
-    return results
+        ids = table["id"].to_numpy()
+        results[task], pred = _probe(kind, x[train], y[train], x[test], y[test], ids[test])
+        if pred is not None:
+            predictions.append(
+                pd.DataFrame(
+                    {
+                        "task": task,
+                        "id": ids[test],
+                        "clip": table["clip"].to_numpy()[test],
+                        "y_true": y[test],
+                        "y_pred": pred,
+                    }
+                )
+            )
+    if not return_predictions:
+        return results
+    if not predictions:
+        return results, pd.DataFrame(columns=["task", "id", "clip", "y_true", "y_pred"])
+    return results, pd.concat(predictions, ignore_index=True)
+
+
+def paired_differences(
+    reference: pd.DataFrame, other: pd.DataFrame, n: int = 1000, seed: int = 0
+) -> dict[str, dict]:
+    """Score of `other` minus score of `reference`, per task, on the same test items.
+
+    Both tables come from `run_probes(..., return_predictions=True)`. Every
+    resample picks the same test volumes for both models, so luck from "this
+    scan is just hard" cancels out. That makes the range much narrower than
+    comparing two separate ranges. {task: {"delta": d, "ci95": [lo, hi]}}; if
+    the range excludes 0, the difference is unlikely to be luck.
+    """
+    out = {}
+    for task, (_, _, kind) in TASKS.items():
+        a, b = reference[reference["task"] == task], other[other["task"] == task]
+        if a.empty or b.empty:
+            continue
+        m = a.merge(b, on=["id", "clip"], suffixes=("_a", "_b"))
+        if not len(m) == len(a) == len(b):
+            raise ValueError(f"{task}: the two models were not scored on the same test items")
+        y, pa, pb = (m[c].to_numpy() for c in ("y_true_a", "y_pred_a", "y_pred_b"))
+        if kind == "regression":
+            y, pa, pb = y.astype(float), pa.astype(float), pb.astype(float)
+            same_truth = np.allclose(y, m["y_true_b"].to_numpy().astype(float))
+        else:
+            y, pa, pb = y.astype(str), pa.astype(str), pb.astype(str)
+            same_truth = (y == m["y_true_b"].to_numpy().astype(str)).all()
+        if not same_truth:
+            raise ValueError(f"{task}: the two models have different true labels")
+        difference = _score_difference(METRICS[kind], y, pa, pb)
+        out[task] = {
+            "delta": float(difference(np.arange(len(y)))),
+            "ci95": _resampled_range(m["id"].to_numpy(), difference, n, seed),
+        }
+    return out
+
+
+def _score_difference(metric, y_true, pred_a, pred_b):
+    """A function of row indices: metric of b minus metric of a on those rows."""
+    return lambda rows: metric(y_true[rows], pred_b[rows]) - metric(y_true[rows], pred_a[rows])
 
 
 # ---------------------------------------------------------------------------
@@ -249,12 +327,20 @@ def run_probes(features: np.ndarray, clips: pd.DataFrame) -> dict[str, dict]:
 # ---------------------------------------------------------------------------
 
 
-def comparison_table(results: dict[str, dict]) -> pd.DataFrame:
-    """Rows = tasks; one column per model (score [95% range]) and the change first -> last.
+def comparison_table(
+    results: dict[str, dict], paired: dict[str, dict] | None = None
+) -> pd.DataFrame:
+    """Rows = tasks; one column per model (score [95% range]), then, for every
+    model after the first, "<model> change": its difference from the first.
 
-    "within noise" means the two 95% ranges overlap: the difference could be luck.
+    `paired` = {model: paired_differences(first's predictions, model's)}. With
+    it, the change shows the paired 95% range of the difference, and "within
+    noise" means that range includes 0. Without it (older results that have no
+    saved predictions), "within noise" means the two models' ranges overlap,
+    which is stricter: a real difference can still show as "within noise".
     """
     models = list(results)
+    paired = paired or {}
     rows = []
     for task in TASKS:
         entries = [results[m].get(task, {}) for m in models]
@@ -268,13 +354,20 @@ def comparison_table(results: dict[str, dict]) -> pd.DataFrame:
         }
         for m, e in zip(models, entries, strict=True):
             row[m] = f"{e['value']:.3f} [{e['ci95'][0]:.3f}, {e['ci95'][1]:.3f}]"
-        if len(models) >= 2:
-            first, last = entries[0], entries[-1]
-            delta = last["value"] - first["value"]
+        first = entries[0]
+        for m, e in zip(models[1:], entries[1:], strict=True):
+            delta = e["value"] - first["value"]
             better = delta > 0 if higher else delta < 0
-            overlap = last["ci95"][0] <= first["ci95"][1] and first["ci95"][0] <= last["ci95"][1]
             verdict = "better" if better else "worse" if delta != 0 else "same"
-            row["change"] = f"{delta:+.3f} ({verdict}{', within noise' if overlap else ''})"
+            diff = paired.get(m, {}).get(task)
+            if diff:
+                lo, hi = diff["ci95"]
+                noise = lo <= 0 <= hi
+                shown = f"{delta:+.3f} [{lo:+.3f}, {hi:+.3f}]"
+            else:
+                noise = e["ci95"][0] <= first["ci95"][1] and first["ci95"][0] <= e["ci95"][1]
+                shown = f"{delta:+.3f}"
+            row[f"{m} change"] = f"{shown} ({verdict}{', within noise' if noise else ''})"
         rows.append(row)
     return pd.DataFrame(rows)
 

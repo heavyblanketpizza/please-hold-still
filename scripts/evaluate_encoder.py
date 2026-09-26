@@ -70,7 +70,8 @@ def main() -> int:
     out = paths.eval_dir(root) / args.tag
     features_path, clips_path = out / "features.npy", out / "clips.csv"
 
-    if features_path.is_file() and clips_path.is_file() and not args.overwrite:
+    reuse = features_path.is_file() and clips_path.is_file() and not args.overwrite
+    if reuse:
         import pandas as pd
 
         features, clips = np.load(features_path), pd.read_csv(clips_path)
@@ -103,11 +104,19 @@ def main() -> int:
     metadata_csv = paths.raw_dir(root) / METADATA_FILENAME
     if metadata_csv.is_file():
         clips = attach_metadata_labels(clips, metadata_csv)
-    probes = run_probes(features, clips)
+    probes, predictions = run_probes(features, clips, return_predictions=True)
+    tmp = out / "predictions.csv.tmp"
+    predictions.to_csv(tmp, index=False)
+    os.replace(tmp, out / "predictions.csv")  # for compare_models.py's paired comparison
 
+    checkpoint = str(args.checkpoint) if args.checkpoint else "original pretrained"
+    old_results = out / "results.json"
+    if reuse and args.checkpoint is None and old_results.is_file():
+        # Reused features: keep the record of which encoder made them.
+        checkpoint = json.loads(old_results.read_text()).get("checkpoint", checkpoint)
     summary = {
         "tag": args.tag,
-        "checkpoint": str(args.checkpoint) if args.checkpoint else "original pretrained",
+        "checkpoint": checkpoint,
         "n_volumes": int(clips["id"].nunique()),
         "n_clips": int(len(clips)),
         "n_test_volumes": int(clips.loc[clips["split"] == "test", "id"].nunique()),

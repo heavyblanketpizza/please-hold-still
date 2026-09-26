@@ -96,12 +96,82 @@ def test_comparison_table_and_chart(tmp_path):
     weak = probe.run_probes(*synthetic(signal=0.2))
     strong = probe.run_probes(*synthetic(signal=1.5))
     table = probe.comparison_table({"baseline": weak, "trained": strong})
-    assert list(table.columns) == ["task", "metric", "chance", "baseline", "trained", "change"]
+    columns = ["task", "metric", "chance", "baseline", "trained", "trained change"]
+    assert list(table.columns) == columns
     row = table.set_index("task").loc["slice_height"]
-    assert "better" in row["change"] and "within noise" not in row["change"]
+    assert "better" in row["trained change"] and "within noise" not in row["trained change"]
 
     out = plot_probe_comparison({"baseline": weak, "trained": strong}, tmp_path / "cmp.png")
     assert mpimg.imread(out).shape[1] > 800
+
+
+def test_predictions_reproduce_the_scores_after_a_csv_round_trip(tmp_path):
+    results, preds = probe.run_probes(*synthetic(), return_predictions=True)
+    preds.to_csv(tmp_path / "predictions.csv", index=False)
+    preds = pd.read_csv(tmp_path / "predictions.csv")  # labels come back as text
+    assert preds.groupby("task").size().to_dict() == {
+        "age": 16,
+        "modality": 16,
+        "sex": 16,
+        "slice_height": 64,
+    }
+    same = probe.paired_differences(preds, preds)
+    assert all(d["delta"] == 0 and d["ci95"] == [0, 0] for d in same.values())
+    mae = probe.METRICS["regression"]
+    rows = preds[preds["task"] == "slice_height"]
+    y_true, y_pred = rows["y_true"].astype(float), rows["y_pred"].astype(float)
+    assert mae(y_true, y_pred) == pytest.approx(results["slice_height"]["value"])
+
+
+def test_paired_comparison_sees_a_small_gain_that_overlapping_ranges_miss():
+    # Both models make the same per-volume mistakes; model b's are 10% smaller.
+    rng = np.random.default_rng(0)
+    n_vol, n_clip = 40, 5
+    ids = np.repeat([f"v{i}" for i in range(n_vol)], n_clip)
+    y = rng.uniform(0, 1, n_vol * n_clip)
+    shared = np.repeat(rng.normal(0, 0.3, n_vol), n_clip)
+    a = pd.DataFrame(
+        {
+            "task": "slice_height",
+            "id": ids,
+            "clip": np.tile(np.arange(n_clip), n_vol),
+            "y_true": y,
+            "y_pred": y + shared,
+        }
+    )
+    b = a.assign(y_pred=y + 0.9 * shared)
+
+    mae = probe.METRICS["regression"]
+    lo_a, hi_a = probe._bootstrap_ci(mae, y, a["y_pred"].to_numpy(), ids)
+    lo_b, hi_b = probe._bootstrap_ci(mae, y, b["y_pred"].to_numpy(), ids)
+    assert lo_a <= hi_b and lo_b <= hi_a  # the separate ranges overlap...
+
+    diff = probe.paired_differences(a, b)["slice_height"]
+    assert diff["delta"] == pytest.approx(mae(y, b["y_pred"]) - mae(y, a["y_pred"]))
+    assert diff["ci95"][1] < 0  # ...but the paired range is clearly below 0
+
+    table = probe.comparison_table(
+        {
+            "a": {"slice_height": _result(mae(y, a["y_pred"]), [lo_a, hi_a])},
+            "b": {"slice_height": _result(mae(y, b["y_pred"]), [lo_b, hi_b])},
+        },
+        paired={"b": {"slice_height": diff}},
+    )
+    change = table.set_index("task").loc["slice_height", "b change"]
+    assert "better" in change and "within noise" not in change and "[" in change
+
+
+def _result(value, ci95):
+    return {"metric": "mae", "higher_is_better": False, "value": value, "ci95": ci95, "chance": 1}
+
+
+def test_paired_comparison_refuses_different_test_items():
+    _, preds = probe.run_probes(*synthetic(), return_predictions=True)
+    with pytest.raises(ValueError, match="same test items"):
+        probe.paired_differences(preds, preds.iloc[1:])
+    relabelled = preds.assign(y_true=preds["y_true"].where(preds["task"] != "modality", "T1w"))
+    with pytest.raises(ValueError, match="different true labels"):
+        probe.paired_differences(preds, relabelled)
 
 
 class PatchMeanEncoder(nn.Module):
