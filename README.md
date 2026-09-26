@@ -1,3 +1,5 @@
+![please hold still. Self-supervised learning, one slice at a time.](docs/banner.png)
+
 # please-hold-still
 
 Continued self-supervised pretraining of Meta's V-JEPA 2.1 video encoder on 3D
