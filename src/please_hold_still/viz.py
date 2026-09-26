@@ -88,7 +88,7 @@ TEXT_MUTED = "#8a897f"
 
 TASK_TITLES = {
     "modality": "Scan type (T1w/T2w/FLAIR)",
-    "sex": "Sex",
+    "sex": "Sex (M/F)",
     "age": "Age (years)",
     "slice_height": "Where in the head",
 }
