@@ -78,6 +78,24 @@ def test_all_background_clip_falls_back_to_all_tokens():
     assert len(ctx) > 0 and len(tgt) > 0
 
 
+def test_single_anatomy_token_still_gets_targets():
+    # Crashed run2 at step ~745: one such clip emptied the targets of the whole batch.
+    fg = torch.zeros(8, 16, 16, dtype=torch.bool)
+    fg[3, 7, 7] = True
+    for cfg in VJEPA21_MASKS:
+        ctx, tgt = sample_one(fg, cfg, torch.Generator().manual_seed(6))
+        assert len(ctx) > 0 and len(tgt) > 0 and not set(ctx.tolist()) & set(tgt.tolist())
+
+
+def test_batch_with_one_nearly_empty_clip_keeps_targets():
+    token_fg = token_foreground(head_mask(b=3))
+    token_fg[1] = 0
+    token_fg[1, 3, 7, 7] = 1.0  # clip 1: anatomy in a single token
+    masks_enc, masks_pred = ForegroundBlockMasker()(token_fg, torch.Generator().manual_seed(7))
+    for m_enc, m_pred in zip(masks_enc, masks_pred, strict=True):
+        assert m_enc.shape[1] > 0 and m_pred.shape[1] > 0
+
+
 def test_tiny_head_still_gets_context():
     fg = torch.zeros(8, 16, 16, dtype=torch.bool)
     fg[:, 7:9, 7:9] = True  # 2x2 tokens: any big block swallows it

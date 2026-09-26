@@ -70,7 +70,10 @@ def sample_one(
     Returns two sorted 1D LongTensors of flat token indices, never overlapping
     and never empty.
     """
-    if not fg.any():  # e.g. a clip of padding only: treat everything as foreground
+    # A clip with 0 or 1 anatomy tokens cannot be split into context + target
+    # (e.g. padding only, or the empty gap between the head and a stray mask
+    # blob): treat everything as foreground.
+    if fg.sum() < 2:
         fg = torch.ones_like(fg)
     duration, height, width = fg.shape
     centres = fg.any(0).nonzero()  # (row, col) positions with anatomy in some slice
