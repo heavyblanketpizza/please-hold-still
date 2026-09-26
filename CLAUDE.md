@@ -234,6 +234,11 @@ Next, on the Mac, in order:
    `<root>/processed/_failures.csv`). Three images contain NaN/inf. Five images
    are damaged on Hugging Face itself (gzip ends early; local size = remote
    size), so re-downloading does not help.
+   `baseline_n2000` done (47 min for 15932 clips, ~2 s per volume): 348 test
+   volumes. Scan type 0.991 (0.981–1.000); sex 0.852 (0.804–0.896); age MAE
+   7.28 years (6.53–8.13, chance 11.3); slice height 0.047 (0.046–0.050).
+   Higher than the 200-volume baseline only because the probes get ~10× more
+   training examples; compare tags only within the same volume set.
 6. Later: Meta's 4-layer "deep supervision" targets; bf16 for speed; the
    whole-volume representation for the LLM stage (longer clips, slice stride,
    or pooling several clips).
